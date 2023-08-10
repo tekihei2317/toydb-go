@@ -31,4 +31,82 @@ SQLが実行されるまで、
 
 構造体のポインタを持っている時、ドットアクセスする時は*を省略できるんでしたっけ。
 
-fmt.Scanlnだと'a b'と入力した時にaしか取得できなかった。空白区切りで変数に割り当てられるようだった。
+## Chapter 2
+
+fmt.Scanlnだと'a b'と入力した時にaしか取得できなかった。空白区切りで変数に割り当てられるようだった。なので、bufio.Scanner.scan()で一行読み取るように変更した。
+
+文字列が特定の文字列で始まるかどうかは、strings.HasPrefixで判定できる。string.HasSuffixもある。
+
+## Chapter 3
+
+まずは、ハードコードした1つのテーブルだけで、append onlyのインメモリデータベースを作成する。
+
+fmt.Sscanfで文字列をパースしているけれど、適当に入力してもパースは失敗しなかった。その場合は、構造体にはゼロ値が入ったままだった。
+
+データは配列に保存している。データのサイズを考慮しながら、memcopyでID、ユーザー名、メールアドレス、ID、ユーザー名、メールアドレスのように保存している。
+
+---
+
+Goで書き換える場合は、unsafe.Pointerというのを使えばいいらしい。
+
+[Go言語: ポインターとそれに関する型(uintptr, unsafe.Pointer) - Qiita](https://qiita.com/nozmiz/items/291f16f619a939bd7b87)
+
+文字列って何バイト？1バイト = 16進数2桁で、GoはUTF-8なので1~4バイト。UTF-8ではアルファベットは1バイトだけれど、ひらがなの「あ」は3バイトで、絵文字の「😨」は4バイト。
+
+[Goのruneを理解するためのUnicode知識 - Qiita](https://qiita.com/seihmd/items/4a878e7fa340d7963fee)
+
+文字列にfor文でインデックスアクセスした場合は、1バイトごとに表示される。つまり「あ」は"e3 81 82"のように3つ表示される。
+
+バイトごとではなく文字ごとにアクセスしたい場合は、runeを使う。
+
+---
+
+文字列をバイトの配列にキャストしようとすると、次のエラーになった。
+
+```go
+// cannot convert "tekihei2317" (untyped string constant) to type byte
+[32]byte("tekihei2317")
+```
+
+バイトの配列にはキャストできないけど、バイトのスライスにはキャストできた。そもそも、固定長の文字列をどうやって持つべきかがよくわからない。とりあえず[32]byteみたいな感じにしてみた。
+
+これだと、1バイトを超える大きさの文字を格納することができない。文字コードが難しい。
+
+```go
+// OK
+{'a', 'b'}
+
+// NG
+{'あ', 'い'}
+```
+
+reflect.DeepEqualは、配列とスライスを比較するとfalseになるっぽい。その場合は、スライスに[:]をつけて配列に変換する？
+
+Printfの書式の%vと%+vの違いは？
+
+[2つのsliceがすべて同じ要素をもっているかどうかを比較するショートカット - Qiita](https://qiita.com/taksatou@github/items/48b22d6d37e99a6c21cc)
+
+---
+
+テーブルは、ページへの参照を配列で持ちます。ページには、複数の行が含まれています。
+
+ポインタとintって足し算できないんだったっけ。
+
+```go
+func rowSlot(table *Table, rowNum uint32) unsafe.Pointer {
+	pageNum := rowNum / ROWS_PER_PAGE
+	page := table.pages[pageNum]
+
+	rowOffset := rowNum % ROWS_PER_PAGE
+	byteOffset := rowOffset * uint32(ROW_SIZE)
+
+  // invalid operation: page + int(byteOffset) (mismatched types unsafe.Pointer and int)
+	return page + int(byteOffset)
+}
+```
+
+ポインタを進める時はこうすればいいらしい。
+
+```go
+return unsafe.Pointer(uintptr(page) + uintptr(byteOffset))
+```

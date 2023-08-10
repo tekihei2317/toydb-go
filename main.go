@@ -39,6 +39,7 @@ type PrepareResult int
 const (
 	PREPARE_SUCCESS PrepareResult = iota + 1
 	PREPARE_UNRECOGNIZED_STATEMENT
+	PREPARE_SYNTAX_ERROR
 )
 
 type StatementType int
@@ -48,8 +49,15 @@ const (
 	STATEMENT_SELECT
 )
 
+type Row struct {
+	id       int
+	username [32]byte
+	email    [256]byte
+}
+
 type Statement struct {
-	Type StatementType
+	Type        StatementType
+	RowToInsert Row // insert only
 }
 
 func execMetaCommand(command string) MetaCommandResult {
@@ -64,6 +72,18 @@ func execMetaCommand(command string) MetaCommandResult {
 func prepareStatement(buf InputBuffer, statement *Statement) PrepareResult {
 	if strings.HasPrefix(buf.text, "insert") {
 		statement.Type = STATEMENT_INSERT
+
+		var username, email string
+		assigned, _ := fmt.Sscanf(buf.text, "insert %d %s %s", &statement.RowToInsert.id, &username, &email)
+		copy(statement.RowToInsert.username[:], username)
+		copy(statement.RowToInsert.email[:], email)
+
+		fmt.Printf("%+v\n", statement.RowToInsert)
+
+		if assigned != 3 {
+			return PREPARE_SYNTAX_ERROR
+		}
+
 		return PREPARE_SUCCESS
 	}
 	if strings.HasPrefix(buf.text, "select") {
@@ -74,18 +94,53 @@ func prepareStatement(buf InputBuffer, statement *Statement) PrepareResult {
 	return PREPARE_UNRECOGNIZED_STATEMENT
 }
 
-func executeStatement(statement Statement) {
-	switch statement.Type {
-	case STATEMENT_INSERT:
-		fmt.Printf("This is where we would do an insert.\n")
-	case STATEMENT_SELECT:
-		fmt.Printf("This is where we would do an select.\n")
+type ExecuteResult int
+
+const (
+	EXECUTE_SUCCESS ExecuteResult = iota + 1
+	EXECUTE_TABLE_FULL
+)
+
+func printRow(row *Row) {
+	fmt.Printf("(%d, %s, %s)\n", row.id, row.username, row.email)
+}
+
+func executeSelect(statement Statement, table *Table) ExecuteResult {
+	var row Row
+	for i := uint32(0); i < table.numRows; i++ {
+		deserializeRow(rowSlot(table, i), &row)
+		printRow(&row)
+	}
+	return EXECUTE_SUCCESS
+}
+
+func executeInsert(statement Statement, table *Table) ExecuteResult {
+	if table.numRows >= TABLE_MAX_ROWS {
+		return EXECUTE_TABLE_FULL
 	}
 
+	rowToInsert := &statement.RowToInsert
+	serializeRow(rowToInsert, rowSlot(table, table.numRows))
+	table.numRows += 1
+
+	return EXECUTE_SUCCESS
+}
+
+func executeStatement(statement Statement, table *Table) ExecuteResult {
+	switch statement.Type {
+	case STATEMENT_INSERT:
+		return executeInsert(statement, table)
+	case STATEMENT_SELECT:
+		return executeSelect(statement, table)
+	default:
+		return EXECUTE_SUCCESS
+	}
 }
 
 func main() {
+	table := Table{numRows: 0}
 	var buf InputBuffer
+
 	for {
 		printPrompt()
 		readInput(&buf)
@@ -106,12 +161,20 @@ func main() {
 
 		switch result {
 		case PREPARE_SUCCESS:
+		case PREPARE_SYNTAX_ERROR:
+			fmt.Printf("Syntax error. Could not parse statement.\n")
+			continue
 		case PREPARE_UNRECOGNIZED_STATEMENT:
 			fmt.Printf("Unrecognized keyword at start of '%s'.\n", buf.text)
 			continue
 		}
 
-		executeStatement(statement)
-		fmt.Printf("Executed\n")
+		executeResult := executeStatement(statement, &table)
+		switch executeResult {
+		case EXECUTE_SUCCESS:
+			fmt.Printf("Executed\n")
+		case EXECUTE_TABLE_FULL:
+			fmt.Printf("Error: Table is full.\n")
+		}
 	}
 }
