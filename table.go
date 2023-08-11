@@ -17,6 +17,12 @@ func rowSlot(table *Table, rowNum uint32) unsafe.Pointer {
 	pageNum := rowNum / ROWS_PER_PAGE
 	page := table.pages[pageNum]
 
+	if page == nil {
+		pageBytes := make([]byte, PAGE_SIZE)
+		page = unsafe.Pointer(&pageBytes)
+		table.pages[pageNum] = page
+	}
+
 	rowOffset := rowNum % ROWS_PER_PAGE
 	byteOffset := rowOffset * uint32(ROW_SIZE)
 

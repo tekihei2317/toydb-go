@@ -78,8 +78,6 @@ func prepareStatement(buf InputBuffer, statement *Statement) PrepareResult {
 		copy(statement.RowToInsert.username[:], username)
 		copy(statement.RowToInsert.email[:], email)
 
-		fmt.Printf("%+v\n", statement.RowToInsert)
-
 		if assigned != 3 {
 			return PREPARE_SYNTAX_ERROR
 		}

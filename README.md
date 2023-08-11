@@ -110,3 +110,26 @@ func rowSlot(table *Table, rowNum uint32) unsafe.Pointer {
 ```go
 return unsafe.Pointer(uintptr(page) + uintptr(byteOffset))
 ```
+
+---
+
+insertを実行するときに次のエラーになった。
+
+```text
+panic: runtime error: invalid memory address or nil pointer dereference
+```
+
+Table.pageが[TABLE_MAX_PAGES]unsafe.Pointerで、これはページの最初の位置を表すアドレスの配列。初期化しないと使えないのだと思う。
+
+初期化してそうなコード（？）を書いたらとりあえず動いた。無茶苦茶なコードを書いている自信がある。バイトのスライスを作って、そのポインタを`unsafe.Pointer`にキャストしてページの配列に代入した。
+
+```go
+if page == nil {
+	pageBytes := make([]byte, PAGE_SIZE)
+	page = unsafe.Pointer(&pageBytes)
+	table.pages[pageNum] = page
+}
+```
+
+- そもそもページを`unsafe.Pointer`のスライスで持つべきなのか
+- メモリを動的に確保するにはどうすればいいのか。makeでスライスを作ってそのポインタを持つより、作ったスライスをそのまま持っておくべきなのか。
