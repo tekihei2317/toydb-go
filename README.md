@@ -133,3 +133,88 @@ if page == nil {
 
 - そもそもページを`unsafe.Pointer`のスライスで持つべきなのか
 - メモリを動的に確保するにはどうすればいいのか。makeでスライスを作ってそのポインタを持つより、作ったスライスをそのまま持っておくべきなのか。
+
+### Chapter4
+
+テストを書く章です。ここまででわからないところが溜まっているので、テストを書いてから調べてリファクタリングします。
+
+まずはビルドしたスクリプトを実行して、コマンドを入力できるようにします。ビルドは`go build`でできました。
+
+こうなっています。
+
+```text
+$ ./toydb-go < command
+db > select
+db > panic: runtime error: index out of range [0] with length 0
+
+goroutine 1 [running]:
+main.main()
+        /Users/tekihei2317/ghq/github.com/tekihei2317/toydb-go/main.go:146 +0x190
+```
+
+```text
+// command
+select
+.exit
+```
+
+`toydb-go`を直接実行してコンソールから入力すると動くのですが、リダイレクトでコマンドを渡すとパニックします。
+
+試してみた感じ。`.exit`では大丈夫ですが、`select`だとエラーになります。
+
+
+### 標準入力で無限ループする
+
+試してみたところ、次は`go run scanner.go < command`で動いた。
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
+
+func main() {
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		scanner.Scan()
+		input := scanner.Text()
+		fmt.Println(input)
+		if input == ".exit" {
+			break
+		}
+	}
+}
+```
+
+でも次は無限ループした（何でだ...）。
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
+
+func main() {
+	for {
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		input := scanner.Text()
+		fmt.Println(input)
+		if input == ".exit" {
+			break
+		}
+	}
+}
+```
+
+Scannerが複数あるとダメになるっぽいので、読み込みの関数にScannerを渡すようにしたら動くようになった。
+
+---
+
+`[32]byte`を出力しているところで、nilがNULL文字として出力されていたので、nilを除外してから出力するように変更した。これでinsertしてselectするテストがパスした。

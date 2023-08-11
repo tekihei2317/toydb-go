@@ -24,3 +24,23 @@ func stringTest() {
 	fmt.Printf("len(str): %d\n", len(str))
 	fmt.Printf("len(cast str as rune[]): %d\n", len(([]rune)(str)))
 }
+
+// func bytesToString(bytes []byte) string {
+// 	var validBytes []byte
+// 	for _, b := range bytes {
+// 		if b == 0 {
+// 			break
+// 		}
+// 		validBytes = append(validBytes, b)
+// 	}
+// 	return string(validBytes)
+// }
+
+func bytesToStringTest() {
+	bytes := [32]byte{'a', 'i'}
+	str := string(bytes[:])
+
+	fmt.Printf("%s\n", str)
+	// nilを出力すると、ヌル文字が入るので除外する
+	fmt.Printf("%s\n", bytesToString(bytes[:]))
+}

@@ -17,9 +17,7 @@ func printPrompt() {
 	fmt.Print("db > ")
 }
 
-func readInput(buf *InputBuffer) error {
-	scanner := bufio.NewScanner(os.Stdin)
-
+func readInput(scanner *bufio.Scanner, buf *InputBuffer) error {
 	scanner.Scan()
 	buf.text = scanner.Text()
 	buf.bufLen = len(buf.text)
@@ -99,8 +97,19 @@ const (
 	EXECUTE_TABLE_FULL
 )
 
+func bytesToString(bytes []byte) string {
+	var validBytes []byte
+	for _, b := range bytes {
+		if b == 0 {
+			break
+		}
+		validBytes = append(validBytes, b)
+	}
+	return string(validBytes)
+}
+
 func printRow(row *Row) {
-	fmt.Printf("(%d, %s, %s)\n", row.id, row.username, row.email)
+	fmt.Printf("(%d, %s, %s)\n", row.id, bytesToString(row.username[:]), bytesToString(row.email[:]))
 }
 
 func executeSelect(statement Statement, table *Table) ExecuteResult {
@@ -137,11 +146,12 @@ func executeStatement(statement Statement, table *Table) ExecuteResult {
 
 func main() {
 	table := Table{numRows: 0}
+	scanner := bufio.NewScanner(os.Stdin)
 	var buf InputBuffer
 
 	for {
 		printPrompt()
-		readInput(&buf)
+		readInput(scanner, &buf)
 
 		if buf.text[0] == '.' {
 			result := execMetaCommand(buf.text)
@@ -170,7 +180,7 @@ func main() {
 		executeResult := executeStatement(statement, &table)
 		switch executeResult {
 		case EXECUTE_SUCCESS:
-			fmt.Printf("Executed\n")
+			fmt.Printf("Executed.\n")
 		case EXECUTE_TABLE_FULL:
 			fmt.Printf("Error: Table is full.\n")
 		}
