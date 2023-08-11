@@ -2,12 +2,13 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os/exec"
 	"testing"
 )
 
-func runScript(commands []string) ([]string, error) {
+func runScripts(commands []string) ([]string, error) {
 	var output []string
 
 	cmd := exec.Command("./toydb-go")
@@ -52,7 +53,7 @@ func TestInsertAndRetrieveRow(t *testing.T) {
 		".exit",
 	}
 
-	result, err := runScript(commands)
+	result, err := runScripts(commands)
 
 	if err != nil {
 		t.Errorf("Error: %s\n", err.Error())
@@ -69,5 +70,30 @@ func TestInsertAndRetrieveRow(t *testing.T) {
 		if result[i] != expectedLine {
 			t.Errorf("expected %s, but got %s\n", expectedLine, result[i])
 		}
+	}
+}
+
+func TestPrintErrorWhenTableIsFull(t *testing.T) {
+	var commands []string
+
+	// 一列は 8+32+256=296バイト
+	// 1ページに4096/296 = 13.8...行
+	// ページ数は100なので、1300レコードまでは登録できる
+	for i := 1; i <= 1301; i++ {
+		commands = append(commands, fmt.Sprintf("insert %d user%d person%d@example.com", i, i, i))
+	}
+	commands = append(commands, ".exit")
+
+	results, err := runScripts(commands)
+
+	if err != nil {
+		t.Errorf("Error: %s\n", err.Error())
+	}
+
+	// 後ろから一番目が.exitの時のプロンプトで、その直前に行数の上限を超えている
+	errorLine := results[len(results)-2]
+
+	if errorLine != "db > Error: Table is full." {
+		t.Errorf("Table is not full. actual message: %s\n", errorLine)
 	}
 }

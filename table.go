@@ -5,7 +5,7 @@ import "unsafe"
 const PAGE_SIZE = 4096
 const TABLE_MAX_PAGES = 100
 const ROWS_PER_PAGE = (uint32)(PAGE_SIZE / ROW_SIZE)
-const TABLE_MAX_ROWS = ROWS_PER_PAGE * PAGE_SIZE
+const TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES
 
 type Table struct {
 	numRows uint32
