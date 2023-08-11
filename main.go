@@ -38,6 +38,8 @@ const (
 	PREPARE_SUCCESS PrepareResult = iota + 1
 	PREPARE_UNRECOGNIZED_STATEMENT
 	PREPARE_SYNTAX_ERROR
+	PREPARE_STRING_TOO_LONG
+	PREPARE_NEGATIVE_ID
 )
 
 type StatementType int
@@ -71,14 +73,29 @@ func prepareStatement(buf InputBuffer, statement *Statement) PrepareResult {
 	if strings.HasPrefix(buf.text, "insert") {
 		statement.Type = STATEMENT_INSERT
 
+		var id int
 		var username, email string
-		assigned, _ := fmt.Sscanf(buf.text, "insert %d %s %s", &statement.RowToInsert.id, &username, &email)
-		copy(statement.RowToInsert.username[:], username)
-		copy(statement.RowToInsert.email[:], email)
+		assigned, _ := fmt.Sscanf(buf.text, "insert %d %s %s", &id, &username, &email)
 
 		if assigned != 3 {
 			return PREPARE_SYNTAX_ERROR
 		}
+
+		if id < 0 {
+			return PREPARE_NEGATIVE_ID
+		}
+
+		if len(username) > USERNAME_SIZE {
+			return PREPARE_STRING_TOO_LONG
+		}
+
+		if len(email) > EMAIL_SIZE {
+			return PREPARE_STRING_TOO_LONG
+		}
+
+		statement.RowToInsert.id = id
+		copy(statement.RowToInsert.username[:], username)
+		copy(statement.RowToInsert.email[:], email)
 
 		return PREPARE_SUCCESS
 	}
@@ -174,6 +191,12 @@ func main() {
 			continue
 		case PREPARE_UNRECOGNIZED_STATEMENT:
 			fmt.Printf("Unrecognized keyword at start of '%s'.\n", buf.text)
+			continue
+		case PREPARE_STRING_TOO_LONG:
+			fmt.Printf("String is too long.\n")
+			continue
+		case PREPARE_NEGATIVE_ID:
+			fmt.Printf("ID must be positive.\n")
 			continue
 		}
 

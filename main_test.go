@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -95,5 +96,88 @@ func TestPrintErrorWhenTableIsFull(t *testing.T) {
 
 	if errorLine != "db > Error: Table is full." {
 		t.Errorf("Table is not full. actual message: %s\n", errorLine)
+	}
+}
+
+func TestInsertMaximumLengthString(t *testing.T) {
+	longUsername := strings.Repeat("a", 32)
+	longEmail := strings.Repeat("a", 256)
+
+	commands := []string{
+		fmt.Sprintf("insert 1 %s %s", longUsername, longEmail),
+		"select",
+		".exit",
+	}
+	results, err := runScripts(commands)
+
+	if err != nil {
+		t.Errorf("Error: %s\n", err.Error())
+	}
+
+	expected := []string{
+		"db > Executed.",
+		fmt.Sprintf("db > (1, %s, %s)", longUsername, longEmail),
+		"Executed.",
+		"db > ",
+	}
+
+	for i, expectedLine := range expected {
+		if results[i] != expectedLine {
+			t.Errorf("expected %s, but got %s\n", expectedLine, results[i])
+		}
+	}
+}
+
+func TestInsertTooLongString(t *testing.T) {
+	longUsername := strings.Repeat("a", 33)
+	longEmail := strings.Repeat("b", 257)
+
+	commands := []string{
+		fmt.Sprintf("insert 1 %s %s", longUsername, longEmail),
+		"select",
+		".exit",
+	}
+	results, err := runScripts(commands)
+
+	if err != nil {
+		t.Errorf("Error: %s\n", err.Error())
+	}
+
+	expected := []string{
+		"db > String is too long.",
+		"db > Executed.",
+		"db > ",
+	}
+
+	for i, expectedLine := range expected {
+		if results[i] != expectedLine {
+			t.Errorf("expected \"%s\", but got \"%s\"\n", expectedLine, results[i])
+		}
+	}
+}
+
+func TestNegativeId(t *testing.T) {
+	commands := []string{
+		"insert -1 tekihei tekihei@example.com",
+		"select",
+		".exit",
+	}
+
+	results, err := runScripts(commands)
+
+	if err != nil {
+		t.Errorf("Error: %s\n", err.Error())
+	}
+
+	expected := []string{
+		"db > ID must be positive.",
+		"db > Executed.",
+		"db > ",
+	}
+
+	for i, expectedLine := range expected {
+		if results[i] != expectedLine {
+			t.Errorf("expected \"%s\", but got \"%s\"\n", expectedLine, results[i])
+		}
 	}
 }
