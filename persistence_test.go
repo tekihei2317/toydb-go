@@ -43,8 +43,8 @@ func TestSerializeRow(t *testing.T) {
 		email:    [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'},
 	}
 
-	var serializedRow [unsafe.Sizeof(Row{})]byte
-	serializeRow(&source, unsafe.Pointer(&serializedRow))
+	var serializedRow [ROW_SIZE]byte
+	serializeRow(&source, serializedRow[:])
 
 	id := serializedRow[0:ID_SIZE]
 
@@ -55,16 +55,15 @@ func TestSerializeRow(t *testing.T) {
 	username := serializedRow[USERNAME_OFFSET:(USERNAME_OFFSET + USERNAME_SIZE)]
 	expectedUsername := [32]byte{'t', 'e', 'k', 'i', 'h', 'e', 'i'}
 
-	// [:]をつけないとDeepEqualはtrueにならない。配列とスライスの比較はtrueにならない感じ？
 	if !reflect.DeepEqual(username, expectedUsername[:]) {
-		t.Errorf("invalid username. expected: %v, actual: %v", expectedUsername, username)
+		t.Errorf("invalid username. expected: %v, but got: %v", expectedUsername, username)
 	}
 
 	email := serializedRow[EMAIL_OFFSET : EMAIL_OFFSET+EMAIL_SIZE]
 	expectedEmail := [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'}
 
 	if !reflect.DeepEqual(email, expectedEmail[:]) {
-		t.Errorf("invalid email. expected: %v, actual: %v", email, expectedEmail)
+		t.Errorf("invalid email. expected: %v, but got: %v", expectedEmail, email)
 	}
 }
 
@@ -75,11 +74,11 @@ func TestDeserializeRow(t *testing.T) {
 		email:    [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'},
 	}
 
-	var serializedRow [unsafe.Sizeof(Row{})]byte
-	serializeRow(&source, unsafe.Pointer(&serializedRow))
+	var serializedRow = make([]byte, ROW_SIZE)
+	serializeRow(&source, serializedRow[:])
 
 	deserializedRow := Row{}
-	deserializeRow(unsafe.Pointer(&serializedRow), &deserializedRow)
+	deserializeRow(serializedRow, &deserializedRow)
 
 	if !reflect.DeepEqual(source, deserializedRow) {
 		t.Errorf("Expected %v, but got %v.\n", source, deserializedRow)

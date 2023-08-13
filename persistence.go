@@ -1,6 +1,9 @@
 package main
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 const (
 	ID_OFFSET       = 0
@@ -12,20 +15,21 @@ const (
 	ROW_SIZE        = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE
 )
 
-func serializeRow(source *Row, destination unsafe.Pointer) {
-	destinationBytes := (*[unsafe.Sizeof(Row{})]byte)(destination)
+// 行の構造体を、バイトのスライスに書き込む
+func serializeRow(source *Row, destination []byte) {
 	sourceBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(source))
 
-	copy(destinationBytes[ID_OFFSET:], sourceBytes[ID_OFFSET:])
-	copy(destinationBytes[USERNAME_OFFSET:], sourceBytes[USERNAME_OFFSET:])
-	copy(destinationBytes[EMAIL_OFFSET:], sourceBytes[EMAIL_OFFSET:])
+	fmt.Println("copy: ", sourceBytes[:])
+	fmt.Println("copy into: ", destination[0:ROW_SIZE])
+
+	copy(destination[0:ROW_SIZE], sourceBytes[:])
+
+	fmt.Println("copied:", destination[0:ROW_SIZE])
 }
 
-func deserializeRow(source unsafe.Pointer, destination *Row) {
-	sourceBytes := (*[unsafe.Sizeof(Row{})]byte)(source)
+// 行データのスライスを、行の構造体に書き込む
+func deserializeRow(source []byte, destination *Row) {
 	destinationBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(destination))
 
-	copy(destinationBytes[ID_OFFSET:], sourceBytes[ID_OFFSET:])
-	copy(destinationBytes[USERNAME_OFFSET:], sourceBytes[USERNAME_OFFSET:])
-	copy(destinationBytes[EMAIL_OFFSET:], sourceBytes[EMAIL_OFFSET:])
+	copy(destinationBytes[:], source[0:ROW_SIZE])
 }

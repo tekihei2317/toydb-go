@@ -139,7 +139,7 @@ func executeSelect(statement Statement, table *Table) ExecuteResult {
 }
 
 func executeInsert(statement Statement, table *Table) ExecuteResult {
-	if table.numRows >= TABLE_MAX_ROWS {
+	if table.numRows >= uint32(TABLE_MAX_ROWS) {
 		return EXECUTE_TABLE_FULL
 	}
 

@@ -36,11 +36,11 @@ func stringTest() {
 // 	return string(validBytes)
 // }
 
-func bytesToStringTest() {
-	bytes := [32]byte{'a', 'i'}
-	str := string(bytes[:])
+// func bytesToStringTest() {
+// 	bytes := [32]byte{'a', 'i'}
+// 	str := string(bytes[:])
 
-	fmt.Printf("%s\n", str)
-	// nilを出力すると、ヌル文字が入るので除外する
-	fmt.Printf("%s\n", bytesToString(bytes[:]))
-}
+// 	fmt.Printf("%s\n", str)
+// 	// nilを出力すると、ヌル文字が入るので除外する
+// 	fmt.Printf("%s\n", bytesToString(bytes[:]))
+// }
