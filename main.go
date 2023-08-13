@@ -130,9 +130,8 @@ func printRow(row *Row) {
 }
 
 func executeSelect(statement Statement, table *Table) ExecuteResult {
-	var row Row
 	for i := uint32(0); i < table.numRows; i++ {
-		deserializeRow(rowSlot(table, i), &row)
+		row := table.getRowByRowNum(i)
 		printRow(&row)
 	}
 	return EXECUTE_SUCCESS
@@ -144,8 +143,7 @@ func executeInsert(statement Statement, table *Table) ExecuteResult {
 	}
 
 	rowToInsert := &statement.RowToInsert
-	serializeRow(rowToInsert, rowSlot(table, table.numRows))
-	table.numRows += 1
+	table.insertRow(rowToInsert)
 
 	return EXECUTE_SUCCESS
 }

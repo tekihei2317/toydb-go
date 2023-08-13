@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"unsafe"
 )
 
 func TestSscanf(t *testing.T) {
@@ -176,5 +177,58 @@ func TestCopySlice(t *testing.T) {
 	}
 	if !reflect.DeepEqual(copied2, []int{0, 1}) {
 		t.Errorf("copied2 is %v\n", copied2)
+	}
+}
+
+type User struct {
+	id     int
+	emails []string
+}
+
+func modifyUserEmail(user *User) *User {
+	// user.emails = []string{"updated@example.com"}
+	user.emails[0] = "updated@example.com"
+
+	return user
+}
+
+func TestSliceInStruct(t *testing.T) {
+	// 構造体の中にスライスがある場合、ポインタ渡しでコピーされるのか
+	user := User{
+		id:     1,
+		emails: []string{"tekihei@example.com"},
+	}
+
+	modifyUserEmail(&user)
+
+	// 関数内でのスライスの書き換えは、変更元にも反映される（構造体をポイント渡ししているのでそれはそう？）
+	if !reflect.DeepEqual(user.emails, []string{"updated@example.com"}) {
+		t.Errorf("user.emails is %v\n", user.emails)
+	}
+}
+
+func TestPointer(t *testing.T) {
+	// unsafe.SizeOfは、渡した値のサイズをバイトで返す
+
+	if unsafe.Sizeof(int(0)) != 8 {
+		t.Error("Error 1")
+	}
+
+	if unsafe.Sizeof(int32(0)) != 4 {
+		t.Error("Error 2")
+	}
+
+	// バイトの32要素の配列
+	if unsafe.Sizeof([32]byte{}) != 32 {
+		t.Error("Error 3")
+	}
+
+	// 文字列1文字は、16ビット=4バイトのサイズ（絵文字に合わせているのかな）
+	if unsafe.Sizeof("a") != 16 {
+		t.Errorf("Error 4, actual %d\n", unsafe.Sizeof("a"))
+	}
+
+	if unsafe.Sizeof("あ") != 16 {
+		t.Errorf("Error 5, actual %d\n", unsafe.Sizeof("あ"))
 	}
 }
