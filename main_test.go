@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -179,5 +180,36 @@ func TestNegativeId(t *testing.T) {
 		if results[i] != expectedLine {
 			t.Errorf("expected \"%s\", but got \"%s\"\n", expectedLine, results[i])
 		}
+	}
+}
+
+func TestKeepsDataAfterClosingConnection(t *testing.T) {
+	results, err := runScripts([]string{
+		"insert 1 user1 person1@example.com",
+		".exit",
+	})
+	check(err)
+
+	expected := []string{
+		"db > Executed.",
+		"db > ",
+	}
+	if !reflect.DeepEqual(results, expected) {
+		t.Errorf("expected %v, but got %v", expected, results)
+	}
+
+	results2, err := runScripts([]string{
+		"select",
+		".exit",
+	})
+	check(err)
+
+	expected2 := []string{
+		"db > (1, user1, person1@example.com)",
+		"Executed.",
+		"db > ",
+	}
+	if !reflect.DeepEqual(results2, expected2) {
+		t.Errorf("expected %v, but got %v", expected2, results)
 	}
 }

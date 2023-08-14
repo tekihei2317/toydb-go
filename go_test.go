@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -230,5 +231,87 @@ func TestPointer(t *testing.T) {
 
 	if unsafe.Sizeof("あ") != 16 {
 		t.Errorf("Error 5, actual %d\n", unsafe.Sizeof("あ"))
+	}
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+func TestReadFile(t *testing.T) {
+	f, err := os.Open("./README.md")
+	check(err)
+
+	// 1. 1行だけ読み取る
+	b1 := make([]byte, 10)
+	// f.Readは、スライスの数だけファイルを読み込む
+	f.Read(b1)
+
+	expected := "# toydb-go"
+	if !reflect.DeepEqual(b1, []byte(expected)) {
+		t.Errorf("expected %v, but got %v", []byte(expected), b1)
+	}
+
+	// 2. 途中から読み取る
+	f2, err := os.Open("./README.md")
+	check(err)
+	_, err2 := f2.Seek(2, 0)
+	check(err2)
+
+	b2 := make([]byte, 8)
+	f2.Read(b2)
+
+	expected2 := "toydb-go"
+	if !reflect.DeepEqual(b2, []byte(expected2)) {
+		t.Errorf("expected %v, but got %v", []byte(expected2), b2)
+	}
+
+	// 2.1 途中から読み取る（File.ReadAt）
+	f3, err := os.Open("./README.md")
+	check(err)
+
+	b3 := make([]byte, 8)
+	_, err3 := f3.ReadAt(b3, 2)
+	check(err3)
+
+	expected3 := "toydb-go"
+	if !reflect.DeepEqual(b3, []byte(expected3)) {
+		t.Errorf("expected %v, but got %v", []byte(expected3), b3)
+	}
+}
+
+func TestWriteFile(t *testing.T) {
+	// なければ作成し、あればそのまま読み取る
+	// f, err := os.OpenFile("file", os.O_RDWR|os.O_CREATE, 0666)
+
+	// 1. 先頭から書き込む
+	f, err := os.Create("file") // なければ作成し、あれば空っぽにする
+	check(err)
+	defer f.Close()
+
+	f.Write([]byte("abcde"))
+
+	content, err := os.ReadFile("file")
+	check(err)
+
+	expected := []byte("abcde")
+	if !reflect.DeepEqual(content, expected) {
+		t.Errorf("expected %v, but got %v", expected, content)
+	}
+
+	// 2. 途中から書き込む
+	offset, err := f.Seek(2, 0)
+	if offset != 2 {
+		t.Errorf("offset is %d", offset)
+	}
+	f.Write([]byte("aaaaa"))
+
+	content2, err := os.ReadFile("file")
+	check(err)
+
+	expected2 := []byte("abaaaaa")
+	if !reflect.DeepEqual(content2, expected2) {
+		t.Errorf("expected %v, but got %v", expected2, content2)
 	}
 }
