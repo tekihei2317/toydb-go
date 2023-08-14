@@ -116,7 +116,9 @@ func (table *Table) getRowSlot(rowNumUint32 uint32) RowSlot {
 
 // 行を挿入する
 func (table *Table) insertRow(row *Row) {
-	rs := table.getRowSlot(table.numRows)
+	// rs := table.getRowSlot(table.numRows)
+	cursor := tableEnd(table)
+	rs := cursorValue(&cursor)
 	sourceBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(row))
 
 	// ページに書き込む
@@ -134,4 +136,52 @@ func (table *Table) getRowByRowNum(rowNum uint32) Row {
 	copy(destinationBytes[:], table.pager.getRow(rs))
 
 	return *row
+}
+
+type Cursor struct {
+	table      *Table
+	rowNum     uint32
+	endOfTable bool
+}
+
+func tableStart(table *Table) Cursor {
+	var endOfTable bool
+	if table.numRows == 0 {
+		endOfTable = true
+	} else {
+		endOfTable = false
+	}
+
+	return Cursor{
+		table:      table,
+		rowNum:     0,
+		endOfTable: endOfTable,
+	}
+}
+
+func tableEnd(table *Table) Cursor {
+	return Cursor{
+		table:      table,
+		rowNum:     table.numRows,
+		endOfTable: true,
+	}
+}
+
+func cursorValue(cursor *Cursor) RowSlot {
+	rowNum := cursor.rowNum
+	pageNum := int(rowNum) / ROWS_PER_PAGE
+	rowOffset := int(rowNum) % ROWS_PER_PAGE
+
+	return RowSlot{
+		pageNum:  pageNum,
+		rowStart: ROW_SIZE * rowOffset,
+		rowEnd:   ROW_SIZE*rowOffset + ROW_SIZE,
+	}
+}
+
+func cursorAdvance(cursor *Cursor) {
+	cursor.rowNum += 1
+	if cursor.rowNum >= cursor.table.numRows {
+		cursor.endOfTable = true
+	}
 }

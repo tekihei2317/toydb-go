@@ -1,6 +1,6 @@
 # memo
 
-## Chapter 1
+## Part 1
 
 SQLが実行されるまで、
 
@@ -14,11 +14,11 @@ SQLが実行されるまで、
 
 構造体のポインタの場合、ドットアクセスする時に*での実体参照を省略できる。
 
-## Chapter 2
+## Part 2
 
 文字列が特定の文字列で始まるかどうかは、strings.HasPrefixで判定できる。string.HasSuffixもある。
 
-## Chapter 3
+## Part 3
 
 まずは、ハードコードした1つのテーブルだけで、append onlyのインメモリデータベースを作成する。
 
@@ -144,7 +144,7 @@ panic: runtime error: invalid memory address or nil pointer dereference
 
 コードを振り返って見て、やっぱりページは`unsafe.Pointer`ではなく`[PAGE_SIZE]byte`でよさそうだ。今のコードでは、メモリを確保するときも書き込む時も、結局バイトのスライス（へのポインタ）に変換している。
 
-## Chapter4
+## Part4
 
 まずはビルドしたスクリプトを実行して、コマンドを入力できるようにする。ビルドは`go build`でできた。
 

@@ -131,10 +131,14 @@ func printRow(row *Row) {
 }
 
 func executeSelect(statement Statement, table *Table) ExecuteResult {
-	for i := uint32(0); i < table.numRows; i++ {
-		row := table.getRowByRowNum(i)
+	cursor := tableStart(table)
+
+	for !cursor.endOfTable {
+		row := table.getRowByRowNum(cursor.rowNum)
 		printRow(&row)
+		cursorAdvance(&cursor)
 	}
+
 	return EXECUTE_SUCCESS
 }
 
