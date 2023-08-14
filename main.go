@@ -60,8 +60,9 @@ type Statement struct {
 	RowToInsert Row // insert only
 }
 
-func execMetaCommand(command string) MetaCommandResult {
+func execMetaCommand(command string, table *Table) MetaCommandResult {
 	if command == ".exit" {
+		dbClose(table)
 		os.Exit(0)
 		return META_COMMAND_SUCCESS
 	} else {
@@ -160,7 +161,17 @@ func executeStatement(statement Statement, table *Table) ExecuteResult {
 }
 
 func main() {
-	table := Table{numRows: 0}
+	if len(os.Args) < 2 {
+		fmt.Println("Must supply a database filename.")
+		os.Exit(1)
+	}
+
+	table, err := dbOpen(os.Args[1])
+	if err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
+		os.Exit(1)
+	}
+
 	scanner := bufio.NewScanner(os.Stdin)
 	var buf InputBuffer
 
@@ -169,7 +180,7 @@ func main() {
 		readInput(scanner, &buf)
 
 		if buf.text[0] == '.' {
-			result := execMetaCommand(buf.text)
+			result := execMetaCommand(buf.text, table)
 
 			if result == META_COMMAND_SUCCESS {
 				continue
@@ -198,7 +209,7 @@ func main() {
 			continue
 		}
 
-		executeResult := executeStatement(statement, &table)
+		executeResult := executeStatement(statement, table)
 		switch executeResult {
 		case EXECUTE_SUCCESS:
 			fmt.Printf("Executed.\n")

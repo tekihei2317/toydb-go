@@ -1,6 +1,9 @@
 package main
 
-import "unsafe"
+import (
+	"os"
+	"unsafe"
+)
 
 const (
 	PAGE_SIZE       = 4096
@@ -21,9 +24,77 @@ const (
 
 type Page [PAGE_SIZE]byte
 
+type Pager struct {
+	file  *os.File
+	pages [TABLE_MAX_PAGES](*Page)
+}
+
+func (pager *Pager) getPage(pageNum int) *Page {
+	if pager.pages[pageNum] != nil {
+		return pager.pages[pageNum]
+	}
+
+	// ディスクから読み取って、ページャに設定する
+	pager.file.Seek(int64(pageNum*PAGE_SIZE), 0)
+	page := Page{}
+	pager.file.Read(page[:])
+	pager.pages[pageNum] = &page
+
+	return pager.pages[pageNum]
+}
+
+// ページの内容をディスクに書き込む
+func (pager *Pager) flushPages(numRows uint32) error {
+	defer pager.file.Close()
+
+	file := pager.file
+
+	// 全ての行が埋まっているページの書き込み
+	numFullPages := numRows / uint32(ROWS_PER_PAGE)
+	for i := uint32(0); i < numFullPages; i++ {
+		// ページがキャッシュにない場合は何もしない（読み取りも書き込みもされていない場合）
+		page := pager.pages[i]
+		if page == nil {
+			continue
+		}
+
+		file.Seek(int64(PAGE_SIZE*i), 0)
+		_, err := file.Write(page[:])
+		if err != nil {
+			return err
+		}
+	}
+
+	// 埋まっていないページの書き込み
+	numAdditionalRows := numRows % uint32(ROWS_PER_PAGE)
+	if numAdditionalRows > 0 {
+		if page := pager.pages[numFullPages]; page != nil {
+			file.Seek(int64(PAGE_SIZE*numFullPages), 0)
+
+			_, err := file.Write(page[0 : int(numAdditionalRows)*ROW_SIZE])
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (pager *Pager) insertRow(rs RowSlot, row []byte) {
+	page := pager.getPage(rs.pageNum)
+	copy(page[rs.rowStart:rs.rowEnd], row)
+}
+
+func (pager *Pager) getRow(rs RowSlot) []byte {
+	page := pager.getPage(rs.pageNum)
+	return page[rs.rowStart:rs.rowEnd]
+}
+
 type Table struct {
 	numRows uint32
 	pages   [TABLE_MAX_PAGES]Page
+	pager   Pager
 }
 
 // メモリ上の行の位置
@@ -49,7 +120,7 @@ func (table *Table) insertRow(row *Row) {
 	sourceBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(row))
 
 	// ページに書き込む
-	copy(table.pages[rs.pageNum][rs.rowStart:rs.rowEnd], sourceBytes[:])
+	table.pager.insertRow(rs, sourceBytes[:])
 	table.numRows++
 }
 
@@ -60,7 +131,7 @@ func (table *Table) getRowByRowNum(rowNum uint32) Row {
 	// ページから、Row構造体に書き込む
 	row := &Row{}
 	destinationBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(row))
-	copy(destinationBytes[:], table.pages[rs.pageNum][rs.rowStart:rs.rowEnd])
+	copy(destinationBytes[:], table.pager.getRow(rs))
 
 	return *row
 }

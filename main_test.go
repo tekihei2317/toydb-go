@@ -4,16 +4,21 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
 )
 
+func beforeEach() {
+	os.Remove("test.db")
+}
+
 func runScripts(commands []string) ([]string, error) {
 	var output []string
 
-	cmd := exec.Command("./toydb-go")
+	cmd := exec.Command("./toydb-go", "test.db")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return output, err
@@ -29,6 +34,7 @@ func runScripts(commands []string) ([]string, error) {
 	defer stdout.Close()
 
 	if err := cmd.Start(); err != nil {
+		fmt.Println("start")
 		return output, err
 	}
 
@@ -49,6 +55,8 @@ func runScripts(commands []string) ([]string, error) {
 }
 
 func TestInsertAndRetrieveRow(t *testing.T) {
+	beforeEach()
+
 	commands := []string{
 		"insert 1 user1 person1@example.com",
 		"select",
@@ -76,6 +84,8 @@ func TestInsertAndRetrieveRow(t *testing.T) {
 }
 
 func TestPrintErrorWhenTableIsFull(t *testing.T) {
+	beforeEach()
+
 	var commands []string
 
 	// 一列は 8+32+256=296バイト
@@ -101,6 +111,8 @@ func TestPrintErrorWhenTableIsFull(t *testing.T) {
 }
 
 func TestInsertMaximumLengthString(t *testing.T) {
+	beforeEach()
+
 	longUsername := strings.Repeat("a", 32)
 	longEmail := strings.Repeat("a", 256)
 
@@ -130,6 +142,8 @@ func TestInsertMaximumLengthString(t *testing.T) {
 }
 
 func TestInsertTooLongString(t *testing.T) {
+	beforeEach()
+
 	longUsername := strings.Repeat("a", 33)
 	longEmail := strings.Repeat("b", 257)
 
@@ -158,6 +172,8 @@ func TestInsertTooLongString(t *testing.T) {
 }
 
 func TestNegativeId(t *testing.T) {
+	beforeEach()
+
 	commands := []string{
 		"insert -1 tekihei tekihei@example.com",
 		"select",
@@ -184,6 +200,8 @@ func TestNegativeId(t *testing.T) {
 }
 
 func TestKeepsDataAfterClosingConnection(t *testing.T) {
+	beforeEach()
+
 	results, err := runScripts([]string{
 		"insert 1 user1 person1@example.com",
 		".exit",

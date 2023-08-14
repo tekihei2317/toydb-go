@@ -15,7 +15,7 @@ func TestInsert(t *testing.T) {
 	})
 
 	rs := table.getRowSlot(0)
-	serializedRow := table.pages[rs.pageNum][rs.rowStart:rs.rowEnd]
+	serializedRow := table.pager.getRow(rs)
 
 	id := serializedRow[0:ID_SIZE]
 	if !reflect.DeepEqual(id, []byte{1, 0, 0, 0, 0, 0, 0, 0}) {
