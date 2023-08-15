@@ -1,21 +1,22 @@
-package main
+package table
 
 import (
 	"reflect"
 	"testing"
+	"toydb-go/persistence"
 )
 
 func TestInsert(t *testing.T) {
 	table := Table{numRows: 0}
 
-	table.insertRow(&Row{
-		id:       1,
-		username: [32]byte{'t', 'e', 'k', 'i', 'h', 'e', 'i'},
-		email:    [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'},
+	table.InsertRow(&Row{
+		Id:       1,
+		Username: [32]byte{'t', 'e', 'k', 'i', 'h', 'e', 'i'},
+		Email:    [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'},
 	})
 
-	rs := table.getRowSlot(0)
-	serializedRow := table.pager.getRow(rs)
+	rs := persistence.GetRowSlot(0)
+	serializedRow := table.pager.GetRow(rs)
 
 	id := serializedRow[0:ID_SIZE]
 	if !reflect.DeepEqual(id, []byte{1, 0, 0, 0, 0, 0, 0, 0}) {
@@ -41,14 +42,14 @@ func TestGetRow(t *testing.T) {
 	table := Table{numRows: 0}
 
 	row := Row{
-		id:       1,
-		username: [32]byte{'t', 'e', 'k', 'i', 'h', 'e', 'i'},
-		email:    [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'},
+		Id:       1,
+		Username: [32]byte{'t', 'e', 'k', 'i', 'h', 'e', 'i'},
+		Email:    [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'},
 	}
 
-	table.insertRow(&row)
+	table.InsertRow(&row)
 
-	fetchedRow := table.getRowByRowNum(0)
+	fetchedRow := table.GetRowByRowNum(0)
 	if !reflect.DeepEqual(fetchedRow, row) {
 		t.Errorf("invalid row. expected: %v, but got: %v", row, fetchedRow)
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	db "toydb-go/table"
 )
 
 type InputBuffer struct {
@@ -49,20 +50,14 @@ const (
 	STATEMENT_SELECT
 )
 
-type Row struct {
-	id       int
-	username [32]byte
-	email    [256]byte
-}
-
 type Statement struct {
 	Type        StatementType
-	RowToInsert Row // insert only
+	RowToInsert db.Row // insert only
 }
 
-func execMetaCommand(command string, table *Table) MetaCommandResult {
+func execMetaCommand(command string, table *db.Table) MetaCommandResult {
 	if command == ".exit" {
-		dbClose(table)
+		db.DbClose(table)
 		os.Exit(0)
 		return META_COMMAND_SUCCESS
 	} else {
@@ -86,17 +81,17 @@ func prepareStatement(buf InputBuffer, statement *Statement) PrepareResult {
 			return PREPARE_NEGATIVE_ID
 		}
 
-		if len(username) > USERNAME_SIZE {
+		if len(username) > db.USERNAME_SIZE {
 			return PREPARE_STRING_TOO_LONG
 		}
 
-		if len(email) > EMAIL_SIZE {
+		if len(email) > db.EMAIL_SIZE {
 			return PREPARE_STRING_TOO_LONG
 		}
 
-		statement.RowToInsert.id = id
-		copy(statement.RowToInsert.username[:], username)
-		copy(statement.RowToInsert.email[:], email)
+		statement.RowToInsert.Id = id
+		copy(statement.RowToInsert.Username[:], username)
+		copy(statement.RowToInsert.Email[:], email)
 
 		return PREPARE_SUCCESS
 	}
@@ -126,34 +121,34 @@ func bytesToString(bytes []byte) string {
 	return string(validBytes)
 }
 
-func printRow(row *Row) {
-	fmt.Printf("(%d, %s, %s)\n", row.id, bytesToString(row.username[:]), bytesToString(row.email[:]))
+func printRow(row *db.Row) {
+	fmt.Printf("(%d, %s, %s)\n", row.Id, bytesToString(row.Username[:]), bytesToString(row.Email[:]))
 }
 
-func executeSelect(statement Statement, table *Table) ExecuteResult {
-	cursor := tableStart(table)
+func executeSelect(statement Statement, table *db.Table) ExecuteResult {
+	cursor := db.TableStart(table)
 
-	for !cursor.endOfTable {
-		row := table.getRowByRowNum(cursor.rowNum)
+	for !cursor.EndOfTable {
+		row := table.GetRowByRowNum(cursor.RowNum)
 		printRow(&row)
-		cursorAdvance(&cursor)
+		db.CursorAdvance(&cursor)
 	}
 
 	return EXECUTE_SUCCESS
 }
 
-func executeInsert(statement Statement, table *Table) ExecuteResult {
-	if table.numRows >= uint32(TABLE_MAX_ROWS) {
+func executeInsert(statement Statement, table *db.Table) ExecuteResult {
+	if db.GetNumRows(table) >= uint32(db.TABLE_MAX_ROWS) {
 		return EXECUTE_TABLE_FULL
 	}
 
 	rowToInsert := &statement.RowToInsert
-	table.insertRow(rowToInsert)
+	table.InsertRow(rowToInsert)
 
 	return EXECUTE_SUCCESS
 }
 
-func executeStatement(statement Statement, table *Table) ExecuteResult {
+func executeStatement(statement Statement, table *db.Table) ExecuteResult {
 	switch statement.Type {
 	case STATEMENT_INSERT:
 		return executeInsert(statement, table)
@@ -170,7 +165,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	table, err := dbOpen(os.Args[1])
+	table, err := db.DbOpen(os.Args[1])
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
 		os.Exit(1)
