@@ -19,7 +19,7 @@ https://cstack.github.io/db_tutorial/
 
 ## メモ
 
-- [Part 1](./part1.md)
-- [Part 5](./part5.md)
+- [Part 1~](./part1.md)
+- [Part 5~](./part5.md)
 
 Printfの書式の%vと%+vの違いは？
