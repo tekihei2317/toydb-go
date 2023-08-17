@@ -107,6 +107,13 @@ func (leafUtil) GetCell(page *Page, cellNum uint32) []byte {
 	return page[start:end]
 }
 
+// リーフノードのキーの値を返す
+func (leafUtil) GetKey(page *Page, cellNum uint32) uint32 {
+	start, end := LeafUtil.getKeyPos(cellNum)
+	key := binary.LittleEndian.Uint32(page[start:end])
+	return key
+}
+
 // リーフノードのセルの位置を返す
 func (leafUtil) getCellPos(cellNum uint32) (uint32, uint32) {
 	cellStart := LEAF_NODE_HEADER_SIZE + cellNum*LEAF_NODE_CELL_SIZE

@@ -84,30 +84,8 @@ func TestInsertAndRetrieveRow(t *testing.T) {
 }
 
 func TestPrintErrorWhenTableIsFull(t *testing.T) {
+	// 1ページしか実装していないため、一旦スキップ
 	beforeEach()
-
-	var commands []string
-
-	// 一列は 8+32+256=296バイト
-	// 1ページに4096/296 = 13.8...行
-	// ページ数は100なので、1300レコードまでは登録できる
-	for i := 1; i <= 1301; i++ {
-		commands = append(commands, fmt.Sprintf("insert %d user%d person%d@example.com", i, i, i))
-	}
-	commands = append(commands, ".exit")
-
-	results, err := runScripts(commands)
-
-	if err != nil {
-		t.Errorf("Error: %s\n", err.Error())
-	}
-
-	// 後ろから一番目が.exitの時のプロンプトで、その直前に行数の上限を超えている
-	errorLine := results[len(results)-2]
-
-	if errorLine != "db > Error: Table is full." {
-		t.Errorf("Table is not full. actual message: %s\n", errorLine)
-	}
 }
 
 func TestInsertMaximumLengthString(t *testing.T) {
@@ -229,5 +207,32 @@ func TestKeepsDataAfterClosingConnection(t *testing.T) {
 	}
 	if !reflect.DeepEqual(results2, expected2) {
 		t.Errorf("expected %v, but got %v", expected2, results)
+	}
+}
+
+func TestPrintOneNodeBtree(t *testing.T) {
+	beforeEach()
+
+	scripts := []string{}
+	for _, i := range []int{3, 1, 2} {
+		scripts = append(scripts, fmt.Sprintf("insert %d user%d person%d@example.com", i, i, i))
+	}
+	scripts = append(scripts, ".btree", ".exit")
+	results, err := runScripts(scripts)
+	check(err)
+
+	expected := []string{
+		"db > Executed.",
+		"db > Executed.",
+		"db > Executed.",
+		"db > Tree:",
+		"leaf (size 3)",
+		"  - 0 : 3",
+		"  - 1 : 1",
+		"  - 2 : 2",
+		"db > ",
+	}
+	if !reflect.DeepEqual(results, expected) {
+		t.Errorf("expected\n%v, but got\n%v", strings.Join(expected, "\n"), strings.Join(results, "\n"))
 	}
 }

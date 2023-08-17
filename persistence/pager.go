@@ -71,7 +71,7 @@ func (pager *Pager) GetPage(pageNum uint32) *Page {
 
 	// ここでページ数を増やすのちょっと変
 	if uint32(pageNum) >= pager.numPages {
-		pager.numPages = uint32(pageNum)
+		pager.numPages = uint32(pageNum) + 1
 	}
 
 	return pager.pages[pageNum]

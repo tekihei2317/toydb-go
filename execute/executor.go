@@ -28,6 +28,8 @@ func ExecMetaCommand(command string, table *db.Table) MetaCommandResult {
 		os.Exit(0)
 		return META_COMMAND_SUCCESS
 	} else if command == ".btree" {
+		fmt.Println("Tree:")
+		db.PrintLeafNode(table)
 		return META_COMMAND_SUCCESS
 	} else {
 		return META_COMMAND_UNRECOGNIZED_COMMAND

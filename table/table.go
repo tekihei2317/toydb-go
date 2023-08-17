@@ -1,6 +1,7 @@
 package table
 
 import (
+	"fmt"
 	"toydb-go/persistence"
 	"unsafe"
 )
@@ -100,5 +101,17 @@ func CursorAdvance(cursor *Cursor) {
 
 	if cursor.CellNum >= numCells {
 		cursor.EndOfTable = true
+	}
+}
+
+// リーフノードを表示する
+func PrintLeafNode(table *Table) {
+	page := table.pager.GetPage(0)
+	numCells := persistence.LeafUtil.GetNumCells(page)
+	fmt.Printf("leaf (size %d)\n", numCells)
+
+	for i := uint32(0); i < numCells; i++ {
+		key := persistence.LeafUtil.GetKey(page, i)
+		fmt.Printf("  - %d : %d\n", i, key)
 	}
 }
