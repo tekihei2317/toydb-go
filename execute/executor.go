@@ -49,12 +49,12 @@ func printRow(row *db.Row) {
 	fmt.Printf("(%d, %s, %s)\n", row.Id, bytesToString(row.Username[:]), bytesToString(row.Email[:]))
 }
 
-// SELECt文を実行する
+// SELECT文を実行する
 func executeSelect(statement core.Statement, table *db.Table) ExecuteResult {
 	cursor := db.TableStart(table)
 
 	for !cursor.EndOfTable {
-		row := table.GetRowByRowNum(cursor.PageNum, cursor.CellNum)
+		row := table.GetRowByCursor(cursor.PageNum, cursor.CellNum)
 		printRow(&row)
 		db.CursorAdvance(&cursor)
 	}

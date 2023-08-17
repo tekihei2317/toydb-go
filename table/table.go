@@ -33,20 +33,28 @@ type Table struct {
 	rootPageNum uint32
 }
 
+func rowToBytes(row *Row) []byte {
+	bytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(row))
+	return bytes[:]
+}
+
 // 行を挿入する
 func (table *Table) InsertRow(row *Row) {
-	cursor := tableEnd(table)
-	leafNodeInsert(&cursor, uint32(row.Id), row)
+	cursor := TableEnd(table)
+	page := table.pager.GetPage(cursor.PageNum)
+
+	persistence.LeafUtil.InsertCell(page, cursor.CellNum, uint32(row.Id), rowToBytes(row))
 }
 
 // 行を取得する
-func (table *Table) GetRowByRowNum(pageNum uint32, cellNum uint32) Row {
-	rs := persistence.GetRowSlot(pageNum, cellNum)
-
+func (table *Table) GetRowByCursor(pageNum uint32, cellNum uint32) Row {
 	// ページから、Row構造体に書き込む
 	row := &Row{}
 	destinationBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(row))
-	copy(destinationBytes[:], table.pager.GetRow(rs))
+
+	page := table.pager.GetPage(pageNum)
+	srcBytes := persistence.LeafUtil.GetCell(page, cellNum)
+	copy(destinationBytes[:], srcBytes)
 
 	return *row
 }
@@ -60,7 +68,7 @@ type Cursor struct {
 
 func TableStart(table *Table) Cursor {
 	endOfTable := false
-	numCells := persistence.GetNumCells(&table.pager, table.rootPageNum)
+	numCells := persistence.LeafUtil.GetNumCells(table.pager.GetPage(table.rootPageNum))
 	if numCells == 0 {
 		endOfTable = true
 	}
@@ -73,8 +81,8 @@ func TableStart(table *Table) Cursor {
 	}
 }
 
-func tableEnd(table *Table) Cursor {
-	numCells := persistence.GetNumCells(&table.pager, table.rootPageNum)
+func TableEnd(table *Table) Cursor {
+	numCells := persistence.LeafUtil.GetNumCells(table.pager.GetPage(table.rootPageNum))
 
 	return Cursor{
 		table:      table,
@@ -84,14 +92,10 @@ func tableEnd(table *Table) Cursor {
 	}
 }
 
-// カーソルのページ上での位置を返す
-func cursorValue(cursor *Cursor) persistence.RowSlot {
-	return persistence.GetRowSlot(cursor.PageNum, cursor.CellNum)
-}
-
 // カーソルを1つ進める
 func CursorAdvance(cursor *Cursor) {
-	numCells := persistence.GetNumCells(&cursor.table.pager, cursor.PageNum)
+	page := cursor.table.pager.GetPage(cursor.PageNum)
+	numCells := persistence.LeafUtil.GetNumCells(page)
 	cursor.CellNum += 1
 
 	if cursor.CellNum >= numCells {

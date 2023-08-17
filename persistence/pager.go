@@ -51,14 +51,14 @@ func InitPager(name string) (*Pager, error) {
 
 	// ページ0を初期化する
 	if pager.numPages == 0 {
-		pager.getPage(0)
+		pager.GetPage(0)
 	}
 
 	return &pager, err
 }
 
 // ページを取得する。ページがキャッシュされていない場合は、ファイルから読み取ってキャッシュする。
-func (pager *Pager) getPage(pageNum uint32) *Page {
+func (pager *Pager) GetPage(pageNum uint32) *Page {
 	if pager.pages[pageNum] != nil {
 		return pager.pages[pageNum]
 	}
@@ -99,55 +99,4 @@ func (pager *Pager) FlushPages() error {
 	}
 
 	return nil
-}
-
-// ページのセルの数を取得する
-func GetNumCells(pager *Pager, pageNum uint32) uint32 {
-	page := pager.pages[pageNum]
-
-	if page == nil {
-		return 0
-	}
-	return leafUtil.getNumCells(page)
-}
-
-// ページのセルの数を増やす
-func IncrementNumCells(pager *Pager, pageNum uint32) {
-	newNumCells := GetNumCells(pager, pageNum) + 1
-	page := pager.pages[pageNum]
-	leafUtil.writeNumCells(page, newNumCells)
-}
-
-func WriteLeafNodeKey(pager *Pager, pageNum uint32, cellNum uint32, key uint32) {
-	page := pager.pages[pageNum]
-	leafUtil.writeNodeKey(page, cellNum, key)
-}
-
-func WriteLeafNodeValue(pager *Pager, pageNum uint32, cellNum uint32, value []byte) {
-	page := pager.pages[pageNum]
-	leafUtil.writeNodeValue(page, cellNum, value)
-}
-
-// メモリ上の行の位置
-type RowSlot struct {
-	pageNum  uint32
-	rowStart uint32
-	rowEnd   uint32
-}
-
-func (pager *Pager) InsertRow(rs RowSlot, row []byte) {
-	page := pager.getPage(rs.pageNum)
-	copy(page[rs.rowStart:rs.rowEnd], row)
-}
-
-func (pager *Pager) GetRow(rs RowSlot) []byte {
-	page := pager.getPage(rs.pageNum)
-	return page[rs.rowStart:rs.rowEnd]
-}
-
-// ページ上での位置を返す
-func GetRowSlot(pageNum uint32, cellNum uint32) RowSlot {
-	start, end := leafUtil.getCellPos(cellNum)
-
-	return RowSlot{pageNum: pageNum, rowStart: start, rowEnd: end}
 }
