@@ -23,6 +23,7 @@ type Pager struct {
 	numPages uint32
 }
 
+// ページャを初期化する。DBファイルのサイズからページ数を計算して、設定する。
 func InitPager(name string) (*Pager, error) {
 	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
@@ -56,12 +57,13 @@ func InitPager(name string) (*Pager, error) {
 	return &pager, err
 }
 
+// ページを取得する。ページがキャッシュされていない場合は、ファイルから読み取ってキャッシュする。
 func (pager *Pager) getPage(pageNum uint32) *Page {
 	if pager.pages[pageNum] != nil {
 		return pager.pages[pageNum]
 	}
 
-	// ディスクから読み取って、ページャに設定する
+	// ファイルから読み取って、ページャに設定する
 	pager.file.Seek(int64(pageNum*PAGE_SIZE), 0)
 	page := Page{}
 	pager.file.Read(page[:])
@@ -75,34 +77,7 @@ func (pager *Pager) getPage(pageNum uint32) *Page {
 	return pager.pages[pageNum]
 }
 
-// ページのセルの数を取得する
-func GetNumCells(pager *Pager, pageNum uint32) uint32 {
-	page := pager.pages[pageNum]
-
-	if page == nil {
-		return 0
-	}
-	return getLeafNodeNumCells(page)
-}
-
-// ページのセルの数を増やす
-func IncrementNumCells(pager *Pager, pageNum uint32) {
-	newNumCells := GetNumCells(pager, pageNum) + 1
-	page := pager.pages[pageNum]
-	writeLeafNodeNumCells(page, newNumCells)
-}
-
-func WriteLeafNodeKey(pager *Pager, pageNum uint32, cellNum uint32, key uint32) {
-	page := pager.pages[pageNum]
-	writeLeafNodeKey(page, cellNum, key)
-}
-
-func WriteLeafNodeValue(pager *Pager, pageNum uint32, cellNum uint32, value []byte) {
-	page := pager.pages[pageNum]
-	writeLeafNodeValue(page, cellNum, value)
-}
-
-// ページの内容をディスクに書き込む
+// ページャの内容をディスクに書き込む
 func (pager *Pager) FlushPages() error {
 	defer pager.file.Close()
 
@@ -126,6 +101,33 @@ func (pager *Pager) FlushPages() error {
 	return nil
 }
 
+// ページのセルの数を取得する
+func GetNumCells(pager *Pager, pageNum uint32) uint32 {
+	page := pager.pages[pageNum]
+
+	if page == nil {
+		return 0
+	}
+	return leafUtil.getNumCells(page)
+}
+
+// ページのセルの数を増やす
+func IncrementNumCells(pager *Pager, pageNum uint32) {
+	newNumCells := GetNumCells(pager, pageNum) + 1
+	page := pager.pages[pageNum]
+	leafUtil.writeNumCells(page, newNumCells)
+}
+
+func WriteLeafNodeKey(pager *Pager, pageNum uint32, cellNum uint32, key uint32) {
+	page := pager.pages[pageNum]
+	leafUtil.writeNodeKey(page, cellNum, key)
+}
+
+func WriteLeafNodeValue(pager *Pager, pageNum uint32, cellNum uint32, value []byte) {
+	page := pager.pages[pageNum]
+	leafUtil.writeNodeValue(page, cellNum, value)
+}
+
 // メモリ上の行の位置
 type RowSlot struct {
 	pageNum  uint32
@@ -145,7 +147,7 @@ func (pager *Pager) GetRow(rs RowSlot) []byte {
 
 // ページ上での位置を返す
 func GetRowSlot(pageNum uint32, cellNum uint32) RowSlot {
-	start, end := leafNodeCell(cellNum)
+	start, end := leafUtil.getCellPos(cellNum)
 
 	return RowSlot{pageNum: pageNum, rowStart: start, rowEnd: end}
 }

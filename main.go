@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"toydb-go/core"
+	"toydb-go/execute"
 	db "toydb-go/table"
 )
 
@@ -26,13 +28,6 @@ func readInput(scanner *bufio.Scanner, buf *InputBuffer) error {
 	return nil
 }
 
-type MetaCommandResult int
-
-const (
-	META_COMMAND_SUCCESS MetaCommandResult = iota + 1
-	META_COMMAND_UNRECOGNIZED_COMMAND
-)
-
 type PrepareResult int
 
 const (
@@ -43,33 +38,10 @@ const (
 	PREPARE_NEGATIVE_ID
 )
 
-type StatementType int
-
-const (
-	STATEMENT_INSERT StatementType = iota + 1
-	STATEMENT_SELECT
-)
-
-type Statement struct {
-	Type        StatementType
-	RowToInsert db.Row // insert only
-}
-
-func execMetaCommand(command string, table *db.Table) MetaCommandResult {
-	if command == ".exit" {
-		db.DbClose(table)
-		os.Exit(0)
-		return META_COMMAND_SUCCESS
-	} else if command == ".btree" {
-		return META_COMMAND_SUCCESS
-	} else {
-		return META_COMMAND_UNRECOGNIZED_COMMAND
-	}
-}
-
-func prepareStatement(buf InputBuffer, statement *Statement) PrepareResult {
+// 入力からステートメントを作成する
+func prepareStatement(buf InputBuffer, statement *core.Statement) PrepareResult {
 	if strings.HasPrefix(buf.text, "insert") {
-		statement.Type = STATEMENT_INSERT
+		statement.Type = core.STATEMENT_INSERT
 
 		var id int
 		var username, email string
@@ -98,63 +70,11 @@ func prepareStatement(buf InputBuffer, statement *Statement) PrepareResult {
 		return PREPARE_SUCCESS
 	}
 	if strings.HasPrefix(buf.text, "select") {
-		statement.Type = STATEMENT_SELECT
+		statement.Type = core.STATEMENT_SELECT
 		return PREPARE_SUCCESS
 	}
 
 	return PREPARE_UNRECOGNIZED_STATEMENT
-}
-
-type ExecuteResult int
-
-const (
-	EXECUTE_SUCCESS ExecuteResult = iota + 1
-	EXECUTE_TABLE_FULL
-)
-
-func bytesToString(bytes []byte) string {
-	var validBytes []byte
-	for _, b := range bytes {
-		if b == 0 {
-			break
-		}
-		validBytes = append(validBytes, b)
-	}
-	return string(validBytes)
-}
-
-func printRow(row *db.Row) {
-	fmt.Printf("(%d, %s, %s)\n", row.Id, bytesToString(row.Username[:]), bytesToString(row.Email[:]))
-}
-
-func executeSelect(statement Statement, table *db.Table) ExecuteResult {
-	cursor := db.TableStart(table)
-
-	for !cursor.EndOfTable {
-		row := table.GetRowByRowNum(cursor.PageNum, cursor.CellNum)
-		printRow(&row)
-		db.CursorAdvance(&cursor)
-	}
-
-	return EXECUTE_SUCCESS
-}
-
-func executeInsert(statement Statement, table *db.Table) ExecuteResult {
-	rowToInsert := &statement.RowToInsert
-	table.InsertRow(rowToInsert)
-
-	return EXECUTE_SUCCESS
-}
-
-func executeStatement(statement Statement, table *db.Table) ExecuteResult {
-	switch statement.Type {
-	case STATEMENT_INSERT:
-		return executeInsert(statement, table)
-	case STATEMENT_SELECT:
-		return executeSelect(statement, table)
-	default:
-		return EXECUTE_SUCCESS
-	}
 }
 
 func main() {
@@ -177,9 +97,9 @@ func main() {
 		readInput(scanner, &buf)
 
 		if buf.text[0] == '.' {
-			result := execMetaCommand(buf.text, table)
+			result := execute.ExecMetaCommand(buf.text, table)
 
-			if result == META_COMMAND_SUCCESS {
+			if result == execute.META_COMMAND_SUCCESS {
 				continue
 			} else {
 				fmt.Printf("Unrecognized command '%s'.\n", buf.text)
@@ -187,7 +107,7 @@ func main() {
 			}
 		}
 
-		var statement Statement
+		var statement core.Statement
 		result := prepareStatement(buf, &statement)
 
 		switch result {
@@ -206,11 +126,11 @@ func main() {
 			continue
 		}
 
-		executeResult := executeStatement(statement, table)
+		executeResult := execute.ExecuteStatement(statement, table)
 		switch executeResult {
-		case EXECUTE_SUCCESS:
+		case execute.EXECUTE_SUCCESS:
 			fmt.Printf("Executed.\n")
-		case EXECUTE_TABLE_FULL:
+		case execute.EXECUTE_TABLE_FULL:
 			fmt.Printf("Error: Table is full.\n")
 		}
 	}

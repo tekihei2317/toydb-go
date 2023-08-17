@@ -332,7 +332,6 @@ func TestByteToInt(t *testing.T) {
 	if !reflect.DeepEqual(dst, src[:]) {
 		t.Errorf("dst and src is not equal")
 	}
-	fmt.Println(src, dst)
 
 	// []byte→構造体
 	deserializedRow := &Row{}
@@ -344,15 +343,11 @@ func TestByteToInt(t *testing.T) {
 	}
 
 	// []byteの一部→int
-	idBytes := dst[0:8]
-	num := (*int)(unsafe.Pointer(&idBytes))
-	num2 := binary.LittleEndian.Uint64(idBytes)
-
-	fmt.Println(*num)
-	fmt.Println(num2)
+	// idBytes := dst[0:8]
+	// num := (*int)(unsafe.Pointer(&idBytes))
+	// num2 := binary.LittleEndian.Uint64(idBytes)
 
 	numBytes := make([]byte, binary.MaxVarintLen64)
 	binary.LittleEndian.PutUint64(numBytes, 100)
-	num3 := binary.LittleEndian.Uint64(numBytes)
-	fmt.Println(num3)
+	// num3 := binary.LittleEndian.Uint64(numBytes)
 }
