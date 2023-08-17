@@ -5,7 +5,7 @@ import (
 )
 
 func DbOpen(name string) (*Table, error) {
-	pager, numRows, err := persistence.InitPager(name)
+	pager, err := persistence.InitPager(name)
 
 	if err != nil {
 		return nil, err
@@ -13,13 +13,12 @@ func DbOpen(name string) (*Table, error) {
 
 	// テーブルを初期化する
 	table := Table{
-		numRows: numRows,
-		pager:   *pager,
+		pager: *pager,
 	}
 
 	return &table, nil
 }
 
 func DbClose(table *Table) {
-	table.pager.FlushPages(table.numRows)
+	table.pager.FlushPages()
 }

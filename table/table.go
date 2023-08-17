@@ -29,13 +29,13 @@ const (
 )
 
 type Table struct {
-	numRows uint32
-	pager   persistence.Pager
+	pager       persistence.Pager
+	rootPageNum uint32
 }
 
-func GetNumRows(table *Table) uint32 {
-	return table.numRows
-}
+// func GetNumRows(table *Table) uint32 {
+// 	return table.numRows
+// }
 
 // 行を挿入する
 func (table *Table) InsertRow(row *Row) {
@@ -46,12 +46,11 @@ func (table *Table) InsertRow(row *Row) {
 
 	// ページに書き込む
 	table.pager.InsertRow(rs, sourceBytes[:])
-	table.numRows++
 }
 
 // 行を取得する
-func (table *Table) GetRowByRowNum(rowNum uint32) Row {
-	rs := persistence.GetRowSlot(rowNum)
+func (table *Table) GetRowByRowNum(pageNum uint32, cellNum uint32) Row {
+	rs := persistence.GetRowSlot(int(pageNum), int(cellNum))
 
 	// ページから、Row構造体に書き込む
 	row := &Row{}
@@ -63,40 +62,48 @@ func (table *Table) GetRowByRowNum(rowNum uint32) Row {
 
 type Cursor struct {
 	table      *Table
-	RowNum     uint32
+	PageNum    uint32
+	CellNum    uint32
 	EndOfTable bool
 }
 
 func TableStart(table *Table) Cursor {
-	var endOfTable bool
-	if table.numRows == 0 {
+	endOfTable := false
+	numCells := persistence.GetNumCells(&table.pager, table.rootPageNum)
+	if numCells == 0 {
 		endOfTable = true
-	} else {
-		endOfTable = false
 	}
 
 	return Cursor{
 		table:      table,
-		RowNum:     0,
+		PageNum:    table.rootPageNum,
+		CellNum:    0,
 		EndOfTable: endOfTable,
 	}
 }
 
 func tableEnd(table *Table) Cursor {
+	numCells := persistence.GetNumCells(&table.pager, table.rootPageNum)
+
 	return Cursor{
 		table:      table,
-		RowNum:     table.numRows,
+		PageNum:    table.rootPageNum,
+		CellNum:    numCells,
 		EndOfTable: true,
 	}
 }
 
+// カーソルのページ上での位置を返す
 func cursorValue(cursor *Cursor) persistence.RowSlot {
-	return persistence.GetRowSlot(cursor.RowNum)
+	return persistence.GetRowSlot(int(cursor.PageNum), int(cursor.CellNum))
 }
 
+// カーソルを1つ進める
 func CursorAdvance(cursor *Cursor) {
-	cursor.RowNum += 1
-	if cursor.RowNum >= cursor.table.numRows {
+	numCells := persistence.GetNumCells(&cursor.table.pager, cursor.PageNum)
+	cursor.CellNum += 1
+
+	if cursor.CellNum >= numCells {
 		cursor.EndOfTable = true
 	}
 }

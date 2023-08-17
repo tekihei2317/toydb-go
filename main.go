@@ -129,7 +129,7 @@ func executeSelect(statement Statement, table *db.Table) ExecuteResult {
 	cursor := db.TableStart(table)
 
 	for !cursor.EndOfTable {
-		row := table.GetRowByRowNum(cursor.RowNum)
+		row := table.GetRowByRowNum(cursor.PageNum, cursor.CellNum)
 		printRow(&row)
 		db.CursorAdvance(&cursor)
 	}
@@ -138,9 +138,9 @@ func executeSelect(statement Statement, table *db.Table) ExecuteResult {
 }
 
 func executeInsert(statement Statement, table *db.Table) ExecuteResult {
-	if db.GetNumRows(table) >= uint32(db.TABLE_MAX_ROWS) {
-		return EXECUTE_TABLE_FULL
-	}
+	// if db.GetNumRows(table) >= uint32(db.TABLE_MAX_ROWS) {
+	// 	return EXECUTE_TABLE_FULL
+	// }
 
 	rowToInsert := &statement.RowToInsert
 	table.InsertRow(rowToInsert)

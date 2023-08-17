@@ -7,7 +7,7 @@ import (
 )
 
 func TestInsert(t *testing.T) {
-	table := Table{numRows: 0}
+	table := Table{}
 
 	table.InsertRow(&Row{
 		Id:       1,
@@ -15,7 +15,7 @@ func TestInsert(t *testing.T) {
 		Email:    [256]byte{'e', 'm', 'a', 'i', 'l', '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'},
 	})
 
-	rs := persistence.GetRowSlot(0)
+	rs := persistence.GetRowSlot(0, 0)
 	serializedRow := table.pager.GetRow(rs)
 
 	id := serializedRow[0:ID_SIZE]
@@ -39,7 +39,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestGetRow(t *testing.T) {
-	table := Table{numRows: 0}
+	table := Table{}
 
 	row := Row{
 		Id:       1,
@@ -49,7 +49,7 @@ func TestGetRow(t *testing.T) {
 
 	table.InsertRow(&row)
 
-	fetchedRow := table.GetRowByRowNum(0)
+	fetchedRow := table.GetRowByRowNum(0, 0)
 	if !reflect.DeepEqual(fetchedRow, row) {
 		t.Errorf("invalid row. expected: %v, but got: %v", row, fetchedRow)
 	}

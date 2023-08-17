@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -17,30 +18,37 @@ const (
 type Page [PAGE_SIZE]byte
 
 type Pager struct {
-	file  *os.File
-	pages [TABLE_MAX_PAGES](*Page)
+	file     *os.File
+	pages    [TABLE_MAX_PAGES](*Page)
+	numPages uint32
 }
 
-func InitPager(name string) (*Pager, uint32, error) {
+func InitPager(name string) (*Pager, error) {
 	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
+	}
+
+	// ページ数を計算する。ファイルサイズとページサイズから計算できる。
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	numPages := fi.Size() / PAGE_SIZE
+
+	if fi.Size()%PAGE_SIZE != 0 {
+		fmt.Printf("Db file is not a whole number of pages. Corrupt file.\n")
+		os.Exit(1)
 	}
 
 	// ページャーを初期化する
 	pager := Pager{
-		file:  f,
-		pages: [TABLE_MAX_PAGES]*Page{},
+		file:     f,
+		pages:    [TABLE_MAX_PAGES]*Page{},
+		numPages: uint32(numPages),
 	}
 
-	// 行数を計算する。ファイルサイズと1行のサイズから計算できる。
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, 0, err
-	}
-	numRows := uint32(fi.Size() / int64(ROW_SIZE))
-
-	return &pager, numRows, err
+	return &pager, err
 }
 
 func (pager *Pager) getPage(pageNum int) *Page {
@@ -54,18 +62,31 @@ func (pager *Pager) getPage(pageNum int) *Page {
 	pager.file.Read(page[:])
 	pager.pages[pageNum] = &page
 
+	// ここでページ数を増やすのちょっと変
+	if uint32(pageNum) >= pager.numPages {
+		pager.numPages = uint32(pageNum)
+	}
+
 	return pager.pages[pageNum]
 }
 
+func GetNumCells(pager *Pager, pageNum uint32) uint32 {
+	page := pager.pages[pageNum]
+
+	if page == nil {
+		return 0
+	}
+	return getLeafNodeNumCells(page)
+}
+
 // ページの内容をディスクに書き込む
-func (pager *Pager) FlushPages(numRows uint32) error {
+func (pager *Pager) FlushPages() error {
 	defer pager.file.Close()
 
 	file := pager.file
 
 	// 全ての行が埋まっているページの書き込み
-	numFullPages := numRows / uint32(ROWS_PER_PAGE)
-	for i := uint32(0); i < numFullPages; i++ {
+	for i := uint32(0); i < pager.numPages; i++ {
 		// ページがキャッシュにない場合は何もしない（読み取りも書き込みもされていない場合）
 		page := pager.pages[i]
 		if page == nil {
@@ -76,19 +97,6 @@ func (pager *Pager) FlushPages(numRows uint32) error {
 		_, err := file.Write(page[:])
 		if err != nil {
 			return err
-		}
-	}
-
-	// 埋まっていないページの書き込み
-	numAdditionalRows := numRows % uint32(ROWS_PER_PAGE)
-	if numAdditionalRows > 0 {
-		if page := pager.pages[numFullPages]; page != nil {
-			file.Seek(int64(PAGE_SIZE*numFullPages), 0)
-
-			_, err := file.Write(page[0 : int(numAdditionalRows)*ROW_SIZE])
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -112,11 +120,9 @@ func (pager *Pager) GetRow(rs RowSlot) []byte {
 	return page[rs.rowStart:rs.rowEnd]
 }
 
-func GetRowSlot(rowNumUint32 uint32) RowSlot {
-	rowNum := int(rowNumUint32)
-	pageNum := int(rowNum) / ROWS_PER_PAGE
-	rowOffset := rowNum % ROWS_PER_PAGE
-	byteOffset := rowOffset * ROW_SIZE
+// ページ上での位置を返す
+func GetRowSlot(pageNum int, cellNum int) RowSlot {
+	start, end := leafNodeCell(cellNum)
 
-	return RowSlot{pageNum: pageNum, rowStart: byteOffset, rowEnd: byteOffset + ROW_SIZE}
+	return RowSlot{pageNum: pageNum, rowStart: start, rowEnd: end}
 }

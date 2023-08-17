@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"reflect"
@@ -314,4 +315,44 @@ func TestWriteFile(t *testing.T) {
 	if !reflect.DeepEqual(content2, expected2) {
 		t.Errorf("expected %v, but got %v", expected2, content2)
 	}
+}
+
+func TestByteToInt(t *testing.T) {
+	type Row struct {
+		Id       int
+		Username [32]byte
+	}
+
+	// 構造体→[]byte
+	row := Row{Id: 1, Username: [32]byte{'u', 's', 'e', 'r'}}
+	src := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(&row))
+	dst := make([]byte, unsafe.Sizeof(Row{}))
+	copy(dst, src[:])
+
+	if !reflect.DeepEqual(dst, src[:]) {
+		t.Errorf("dst and src is not equal")
+	}
+	fmt.Println(src, dst)
+
+	// []byte→構造体
+	deserializedRow := &Row{}
+	dst2 := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(deserializedRow))
+	copy(dst2[:], dst)
+
+	if !reflect.DeepEqual(deserializedRow.Username, [32]byte{'u', 's', 'e', 'r'}) {
+		t.Errorf("Username is not equal")
+	}
+
+	// []byteの一部→int
+	idBytes := dst[0:8]
+	num := (*int)(unsafe.Pointer(&idBytes))
+	num2 := binary.LittleEndian.Uint64(idBytes)
+
+	fmt.Println(*num)
+	fmt.Println(num2)
+
+	numBytes := make([]byte, binary.MaxVarintLen64)
+	binary.LittleEndian.PutUint64(numBytes, 100)
+	num3 := binary.LittleEndian.Uint64(numBytes)
+	fmt.Println(num3)
 }
