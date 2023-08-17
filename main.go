@@ -138,10 +138,6 @@ func executeSelect(statement Statement, table *db.Table) ExecuteResult {
 }
 
 func executeInsert(statement Statement, table *db.Table) ExecuteResult {
-	// if db.GetNumRows(table) >= uint32(db.TABLE_MAX_ROWS) {
-	// 	return EXECUTE_TABLE_FULL
-	// }
-
 	rowToInsert := &statement.RowToInsert
 	table.InsertRow(rowToInsert)
 

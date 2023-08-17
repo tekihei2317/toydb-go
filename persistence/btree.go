@@ -39,32 +39,53 @@ const (
 	LEAF_NODE_MAX_CELLS       = LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE
 )
 
-// func leaf_node_num_cells(void* node) {
-//   return node + LEAF_NODE_NUM_CELLS_OFFSET;
-// }
-
 // ページのセルの数を返す
 func getLeafNodeNumCells(page *Page) uint32 {
 	numCellsBytes := page[LEAF_NODE_NUM_CELLS_OFFSET : LEAF_NODE_NUM_CELLS_OFFSET+LEAF_NODE_NUM_CELLS_SIZE]
 	return binary.LittleEndian.Uint32(numCellsBytes)
 }
 
+func uint32ToBytes(v uint32) []byte {
+	// binary.MaxVariantLen32 = 5の長さを確保しないと、クラッシュすることがあるらしい（4バイトなのになんでだろう）
+	bytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bytes, v)
+	return bytes
+}
+
+// セルの数をバイトにエンコードして、ページに書き込む
+func writeLeafNodeNumCells(page *Page, numCells uint32) {
+	bytes := uint32ToBytes(numCells)
+
+	copy(page[LEAF_NODE_NUM_CELLS_OFFSET:LEAF_NODE_NUM_CELLS_OFFSET+LEAF_NODE_NUM_CELLS_SIZE], bytes)
+}
+
+// セルのキーを書き込む
+func writeLeafNodeKey(page *Page, cellNum uint32, key uint32) {
+	start, end := leafNodeKey(cellNum)
+	copy(page[start:end], uint32ToBytes(key))
+}
+
+func writeLeafNodeValue(page *Page, cellNum uint32, value []byte) {
+	start, end := leafNodeCell(cellNum)
+	copy(page[start:end], value)
+}
+
 // リーフノードのセルの位置を返す
-func leafNodeCell(cellNum int) (int, int) {
+func leafNodeCell(cellNum uint32) (uint32, uint32) {
 	cellStart := LEAF_NODE_HEADER_SIZE + cellNum*LEAF_NODE_CELL_SIZE
 
 	return cellStart, cellStart + LEAF_NODE_CELL_SIZE
 }
 
 // リーフノードのキーの位置を返す
-func leafNodeKey(cellNum int) (int, int) {
+func leafNodeKey(cellNum uint32) (uint32, uint32) {
 	cellStart, _ := leafNodeCell(cellNum)
 
 	return cellStart, cellStart + LEAF_NODE_KEY_SIZE
 }
 
 // リーフノードの値の位置を返す
-func leafNodeValue(cellNum int) (int, int) {
+func leafNodeValue(cellNum uint32) (uint32, uint32) {
 	cellStart, _ := leafNodeCell(cellNum)
 
 	return cellStart + LEAF_NODE_KEY_SIZE, cellStart + LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE

@@ -48,10 +48,15 @@ func InitPager(name string) (*Pager, error) {
 		numPages: uint32(numPages),
 	}
 
+	// ページ0を初期化する
+	if pager.numPages == 0 {
+		pager.getPage(0)
+	}
+
 	return &pager, err
 }
 
-func (pager *Pager) getPage(pageNum int) *Page {
+func (pager *Pager) getPage(pageNum uint32) *Page {
 	if pager.pages[pageNum] != nil {
 		return pager.pages[pageNum]
 	}
@@ -70,6 +75,7 @@ func (pager *Pager) getPage(pageNum int) *Page {
 	return pager.pages[pageNum]
 }
 
+// ページのセルの数を取得する
 func GetNumCells(pager *Pager, pageNum uint32) uint32 {
 	page := pager.pages[pageNum]
 
@@ -77,6 +83,23 @@ func GetNumCells(pager *Pager, pageNum uint32) uint32 {
 		return 0
 	}
 	return getLeafNodeNumCells(page)
+}
+
+// ページのセルの数を増やす
+func IncrementNumCells(pager *Pager, pageNum uint32) {
+	newNumCells := GetNumCells(pager, pageNum) + 1
+	page := pager.pages[pageNum]
+	writeLeafNodeNumCells(page, newNumCells)
+}
+
+func WriteLeafNodeKey(pager *Pager, pageNum uint32, key uint32) {
+	page := pager.pages[pageNum]
+	writeLeafNodeKey(page, pageNum, key)
+}
+
+func WriteLeafNodeValue(pager *Pager, pageNum uint32, value []byte) {
+	page := pager.pages[pageNum]
+	writeLeafNodeValue(page, pageNum, value)
 }
 
 // ページの内容をディスクに書き込む
@@ -105,9 +128,9 @@ func (pager *Pager) FlushPages() error {
 
 // メモリ上の行の位置
 type RowSlot struct {
-	pageNum  int
-	rowStart int
-	rowEnd   int
+	pageNum  uint32
+	rowStart uint32
+	rowEnd   uint32
 }
 
 func (pager *Pager) InsertRow(rs RowSlot, row []byte) {
@@ -121,7 +144,7 @@ func (pager *Pager) GetRow(rs RowSlot) []byte {
 }
 
 // ページ上での位置を返す
-func GetRowSlot(pageNum int, cellNum int) RowSlot {
+func GetRowSlot(pageNum uint32, cellNum uint32) RowSlot {
 	start, end := leafNodeCell(cellNum)
 
 	return RowSlot{pageNum: pageNum, rowStart: start, rowEnd: end}

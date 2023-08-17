@@ -13,7 +13,8 @@ func DbOpen(name string) (*Table, error) {
 
 	// テーブルを初期化する
 	table := Table{
-		pager: *pager,
+		pager:       *pager,
+		rootPageNum: 0,
 	}
 
 	return &table, nil

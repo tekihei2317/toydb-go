@@ -39,18 +39,14 @@ type Table struct {
 
 // 行を挿入する
 func (table *Table) InsertRow(row *Row) {
-	// rs := table.getRowSlot(table.numRows)
 	cursor := tableEnd(table)
-	rs := cursorValue(&cursor)
-	sourceBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(row))
-
-	// ページに書き込む
-	table.pager.InsertRow(rs, sourceBytes[:])
+	persistence.GetNumCells(&table.pager, cursor.PageNum)
+	leafNodeInsert(&cursor, uint32(row.Id), row)
 }
 
 // 行を取得する
 func (table *Table) GetRowByRowNum(pageNum uint32, cellNum uint32) Row {
-	rs := persistence.GetRowSlot(int(pageNum), int(cellNum))
+	rs := persistence.GetRowSlot(pageNum, cellNum)
 
 	// ページから、Row構造体に書き込む
 	row := &Row{}
@@ -95,7 +91,7 @@ func tableEnd(table *Table) Cursor {
 
 // カーソルのページ上での位置を返す
 func cursorValue(cursor *Cursor) persistence.RowSlot {
-	return persistence.GetRowSlot(int(cursor.PageNum), int(cursor.CellNum))
+	return persistence.GetRowSlot(cursor.PageNum, cursor.CellNum)
 }
 
 // カーソルを1つ進める
