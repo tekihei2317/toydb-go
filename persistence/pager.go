@@ -92,14 +92,14 @@ func IncrementNumCells(pager *Pager, pageNum uint32) {
 	writeLeafNodeNumCells(page, newNumCells)
 }
 
-func WriteLeafNodeKey(pager *Pager, pageNum uint32, key uint32) {
+func WriteLeafNodeKey(pager *Pager, pageNum uint32, cellNum uint32, key uint32) {
 	page := pager.pages[pageNum]
-	writeLeafNodeKey(page, pageNum, key)
+	writeLeafNodeKey(page, cellNum, key)
 }
 
-func WriteLeafNodeValue(pager *Pager, pageNum uint32, value []byte) {
+func WriteLeafNodeValue(pager *Pager, pageNum uint32, cellNum uint32, value []byte) {
 	page := pager.pages[pageNum]
-	writeLeafNodeValue(page, pageNum, value)
+	writeLeafNodeValue(page, cellNum, value)
 }
 
 // ページの内容をディスクに書き込む

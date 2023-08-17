@@ -24,7 +24,7 @@ func leafNodeInsert(cursor *Cursor, key uint32, value *Row) {
 	// セルの数を1増やす
 	persistence.IncrementNumCells(&cursor.table.pager, cursor.PageNum)
 	// セルのキーを書き込む
-	persistence.WriteLeafNodeKey(&cursor.table.pager, cursor.PageNum, key)
+	persistence.WriteLeafNodeKey(&cursor.table.pager, cursor.PageNum, cursor.CellNum, key)
 	// セルの値を書き込む
-	persistence.WriteLeafNodeValue(&cursor.table.pager, cursor.PageNum, rowToBytes(value))
+	persistence.WriteLeafNodeValue(&cursor.table.pager, cursor.PageNum, cursor.CellNum, rowToBytes(value))
 }

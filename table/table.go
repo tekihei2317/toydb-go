@@ -33,14 +33,9 @@ type Table struct {
 	rootPageNum uint32
 }
 
-// func GetNumRows(table *Table) uint32 {
-// 	return table.numRows
-// }
-
 // 行を挿入する
 func (table *Table) InsertRow(row *Row) {
 	cursor := tableEnd(table)
-	persistence.GetNumCells(&table.pager, cursor.PageNum)
 	leafNodeInsert(&cursor, uint32(row.Id), row)
 }
 

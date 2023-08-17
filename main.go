@@ -60,6 +60,8 @@ func execMetaCommand(command string, table *db.Table) MetaCommandResult {
 		db.DbClose(table)
 		os.Exit(0)
 		return META_COMMAND_SUCCESS
+	} else if command == ".btree" {
+		return META_COMMAND_SUCCESS
 	} else {
 		return META_COMMAND_UNRECOGNIZED_COMMAND
 	}
