@@ -23,6 +23,10 @@ type Pager struct {
 	numPages uint32
 }
 
+func initLeafNode(node *Page) {
+	LeafUtil.SetNodeType(node, NODE_LEAF)
+}
+
 // ページャを初期化する。DBファイルのサイズからページ数を計算して、設定する。
 func InitPager(name string) (*Pager, error) {
 	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
@@ -51,7 +55,8 @@ func InitPager(name string) (*Pager, error) {
 
 	// ページ0を初期化する
 	if pager.numPages == 0 {
-		pager.GetPage(0)
+		node := pager.GetPage(0)
+		initLeafNode(node)
 	}
 
 	return &pager, err

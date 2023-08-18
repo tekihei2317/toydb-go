@@ -2,6 +2,7 @@ package table
 
 import (
 	"fmt"
+	"os"
 	"toydb-go/persistence"
 	"unsafe"
 )
@@ -39,12 +40,35 @@ func rowToBytes(row *Row) []byte {
 	return bytes[:]
 }
 
+type InsertResult int
+
+const (
+	INSERT_SUCCESS InsertResult = iota + 1
+	INSERT_TABLE_FULL
+	INSERT_DUPLICATE_KEY
+)
+
 // 行を挿入する
-func (table *Table) InsertRow(row *Row) {
-	cursor := TableEnd(table)
-	page := table.pager.GetPage(cursor.PageNum)
+func (table *Table) InsertRow(row *Row) InsertResult {
+	// 現時点では、rootPageがリーフノードであるとする
+	page := table.pager.GetPage(table.rootPageNum)
+	numCells := persistence.LeafUtil.GetNumCells(page)
+	if numCells >= persistence.LEAF_NODE_MAX_CELLS {
+		return INSERT_TABLE_FULL
+	}
+
+	keyToInsert := uint32(row.Id)
+	cursor := TableFind(table, keyToInsert)
+
+	if cursor.CellNum < numCells {
+		keyAtCursor := persistence.LeafUtil.GetCellKey(page, cursor.CellNum)
+		if keyAtCursor == keyToInsert {
+			return INSERT_DUPLICATE_KEY
+		}
+	}
 
 	persistence.LeafUtil.InsertCell(page, cursor.CellNum, uint32(row.Id), rowToBytes(row))
+	return INSERT_SUCCESS
 }
 
 // 行を取得する
@@ -82,15 +106,45 @@ func TableStart(table *Table) Cursor {
 	}
 }
 
-func TableEnd(table *Table) Cursor {
-	numCells := persistence.LeafUtil.GetNumCells(table.pager.GetPage(table.rootPageNum))
+// キー以上の最初のカーソルを返す
+func TableFind(table *Table, key uint32) *Cursor {
+	rootNode := table.pager.GetPage(table.rootPageNum)
 
-	return Cursor{
-		table:      table,
-		PageNum:    table.rootPageNum,
-		CellNum:    numCells,
-		EndOfTable: true,
+	if persistence.LeafUtil.GetNodeType(rootNode) == persistence.NODE_LEAF {
+		// リーフノードから探す
+		return leafNodeFind(table, table.rootPageNum, key)
+	} else {
+		fmt.Println("Need to implement searching an internal node")
+		os.Exit(1)
+		return &Cursor{}
 	}
+}
+
+// リーフノードから、キー以上の最初のカーソルを返す
+func leafNodeFind(table *Table, pageNum uint32, key uint32) *Cursor {
+	node := table.pager.GetPage(pageNum)
+	numCells := persistence.LeafUtil.GetNumCells(node)
+	cursor := &Cursor{
+		table:   table,
+		PageNum: pageNum,
+		CellNum: 0,
+	}
+
+	// キー以上の最初のインデックスを探す
+	ng, ok := -1, int(numCells)
+	for ok-ng > 1 {
+		i := (ok + ng) / 2
+		keyAtI := persistence.LeafUtil.GetCellKey(node, uint32(i))
+
+		if keyAtI >= key {
+			ok = i
+		} else {
+			ng = i
+		}
+	}
+	cursor.CellNum = uint32(ok)
+
+	return cursor
 }
 
 // カーソルを1つ進める
@@ -111,7 +165,7 @@ func PrintLeafNode(table *Table) {
 	fmt.Printf("leaf (size %d)\n", numCells)
 
 	for i := uint32(0); i < numCells; i++ {
-		key := persistence.LeafUtil.GetKey(page, i)
+		key := persistence.LeafUtil.GetCellKey(page, i)
 		fmt.Printf("  - %d : %d\n", i, key)
 	}
 }

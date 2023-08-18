@@ -21,5 +21,6 @@ https://cstack.github.io/db_tutorial/
 
 - [Part 1~](./part1.md)
 - [Part 5~](./part5.md)
+- [Part 9~](./part9.md)
 
 Printfの書式の%vと%+vの違いは？

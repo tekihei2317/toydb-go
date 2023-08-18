@@ -132,6 +132,8 @@ func main() {
 			fmt.Printf("Executed.\n")
 		case execute.EXECUTE_TABLE_FULL:
 			fmt.Printf("Error: Table is full.\n")
+		case execute.EXECUTE_DUPLICATE_KEY:
+			fmt.Printf("Error: Duplicate key.\n")
 		}
 	}
 }

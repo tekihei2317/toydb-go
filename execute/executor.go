@@ -19,6 +19,7 @@ const (
 const (
 	EXECUTE_SUCCESS ExecuteResult = iota + 1
 	EXECUTE_TABLE_FULL
+	EXECUTE_DUPLICATE_KEY
 )
 
 // メタコマンドを実行する
@@ -67,13 +68,23 @@ func executeSelect(statement core.Statement, table *db.Table) ExecuteResult {
 // INSERT文を実行する
 func executeInsert(statement core.Statement, table *db.Table) ExecuteResult {
 	rowToInsert := &statement.RowToInsert
-	table.InsertRow(&db.Row{
+	insertResult := table.InsertRow(&db.Row{
 		Id:       rowToInsert.Id,
 		Username: rowToInsert.Username,
 		Email:    rowToInsert.Email,
 	})
 
-	return EXECUTE_SUCCESS
+	switch insertResult {
+	case db.INSERT_SUCCESS:
+		return EXECUTE_SUCCESS
+	case db.INSERT_DUPLICATE_KEY:
+		return EXECUTE_DUPLICATE_KEY
+	case db.INSERT_TABLE_FULL:
+		return EXECUTE_TABLE_FULL
+	default:
+		// ここを通らないことをアサーションしたい、panicでいいのかな
+		return EXECUTE_SUCCESS
+	}
 }
 
 // SQLステートメントを実行する

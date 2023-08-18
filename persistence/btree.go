@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-type NodeType int
+type NodeType uint8
 
 const (
 	NODE_INTERNAL NodeType = iota
@@ -55,6 +55,17 @@ type leafUtil struct{}
 
 var LeafUtil leafUtil
 
+// ノードの種類（INTERNAL、LEAF）を返す
+func (leafUtil) GetNodeType(page *Page) NodeType {
+	bytes := page[NODE_TYPE_OFFSET : NODE_TYPE_OFFSET+NODE_TYPE_SIZE]
+	return NodeType(bytes[0])
+}
+
+func (leafUtil) SetNodeType(page *Page, nodeType NodeType) {
+	bytes := []byte{byte(nodeType)}
+	copy(page[NODE_TYPE_OFFSET:NODE_TYPE_OFFSET+NODE_TYPE_SIZE], bytes)
+}
+
 // ページのセルの数を返す
 func (leafUtil) GetNumCells(page *Page) uint32 {
 	numCellsBytes := page[LEAF_NODE_NUM_CELLS_OFFSET : LEAF_NODE_NUM_CELLS_OFFSET+LEAF_NODE_NUM_CELLS_SIZE]
@@ -83,22 +94,17 @@ func (leafUtil) InsertCell(page *Page, cellNum uint32, key uint32, value []byte)
 		os.Exit(1)
 	}
 
-	// セルの数を1増やす
+	if cellNum < numCells {
+		// cellNumに挿入できるように、それより後ろにあるセルを1つずつずらす
+		for i := numCells; i > cellNum; i-- {
+			toStart, toEnd := LeafUtil.getCellPos(i)
+			copy(page[toStart:toEnd], LeafUtil.GetCell(page, i-1))
+		}
+	}
+
 	LeafUtil.IncrementNumCells(page)
-	LeafUtil.WriteNodeKey(page, cellNum, key)
-	LeafUtil.WriteNodeValue(page, cellNum, value)
-}
-
-// セルのキーをページに書き込む
-func (leafUtil) WriteNodeKey(page *Page, cellNum uint32, key uint32) {
-	start, end := LeafUtil.getKeyPos(cellNum)
-	copy(page[start:end], uint32ToBytes(key))
-}
-
-// セルの値をページに書き込む
-func (leafUtil) WriteNodeValue(page *Page, cellNum uint32, value []byte) {
-	start, end := LeafUtil.getCellPos(cellNum)
-	copy(page[start:end], value)
+	LeafUtil.WriteCellKey(page, cellNum, key)
+	LeafUtil.WriteCellValue(page, cellNum, value)
 }
 
 // リーフノードのセルの値を返す
@@ -107,11 +113,23 @@ func (leafUtil) GetCell(page *Page, cellNum uint32) []byte {
 	return page[start:end]
 }
 
-// リーフノードのキーの値を返す
-func (leafUtil) GetKey(page *Page, cellNum uint32) uint32 {
+// セルのキーの値を返す
+func (leafUtil) GetCellKey(page *Page, cellNum uint32) uint32 {
 	start, end := LeafUtil.getKeyPos(cellNum)
 	key := binary.LittleEndian.Uint32(page[start:end])
 	return key
+}
+
+// セルのキーをページに書き込む
+func (leafUtil) WriteCellKey(page *Page, cellNum uint32, key uint32) {
+	start, end := LeafUtil.getKeyPos(cellNum)
+	copy(page[start:end], uint32ToBytes(key))
+}
+
+// セルの値をページに書き込む
+func (leafUtil) WriteCellValue(page *Page, cellNum uint32, value []byte) {
+	start, end := LeafUtil.getCellPos(cellNum)
+	copy(page[start:end], value)
 }
 
 // リーフノードのセルの位置を返す
