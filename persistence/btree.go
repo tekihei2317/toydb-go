@@ -20,17 +20,17 @@ func uint32ToBytes(v uint32) []byte {
 	return bytes
 }
 
-// リーフノードを分割してから、新しいセルを挿入する
-// リーフノードは、左と右に半分ずつ分割する
+// リーフノードを分割してから、新しいセルを挿入する。
+// リーフノードは、左と右に半分ずつ分割する。pageは分割するページ。
 func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32, value []byte, rootPageNum uint32) {
-	// pageは分割するページ
 	oldNode := page
 	// 新しいページを取得する（右）
 	newNode, rightChildPageNum := pager.GetNewPage()
 	initLeafNode(newNode)
 
 	// LEAF_NODE_MAX_CELLS+1個のセルを、左右に分割する
-	for i := uint32(LEAF_NODE_MAX_CELLS); i >= 0; i-- {
+	for index := LEAF_NODE_MAX_CELLS; index >= 0; index-- {
+		i := uint32(index)
 		var dstNode *Page
 		if i >= LEAF_NODE_LEFT_SPLIT_COUNT {
 			dstNode = newNode
@@ -44,11 +44,11 @@ func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32
 			LeafUtil.WriteCellKey(dstNode, dstCellNum, key)
 			LeafUtil.WriteCellValue(dstNode, dstCellNum, value)
 		} else if i > cellNum {
-			// 挿入する位置より後ろの場合は、後ろに一つずらす
-			LeafUtil.WriteCell(dstNode, dstCellNum, LeafUtil.GetCell(dstNode, i-1))
+			// 挿入する位置より後ろの場合は、コピー元は元のページのi-1番目
+			LeafUtil.WriteCell(dstNode, dstCellNum, LeafUtil.GetCell(page, i-1))
 		} else {
-			// 挿入する位置より前の場合は、そのままずらす（？）
-			LeafUtil.WriteCell(dstNode, dstCellNum, LeafUtil.GetCell(dstNode, i))
+			// 挿入する位置より前の場合は、コピー元は元のページのi番目
+			LeafUtil.WriteCell(dstNode, dstCellNum, LeafUtil.GetCell(page, i))
 		}
 	}
 	LeafUtil.WriteNumCells(oldNode, LEAF_NODE_LEFT_SPLIT_COUNT)
@@ -80,6 +80,7 @@ func createNewRoot(pager *Pager, rootPageNum uint32, rightChildPageNum uint32) {
 	initInternalNode(root)
 	NodeUtil.setNodeRoot(root, true)
 	InternalUtil.setNumKeys(root, 1)
+
 	InternalUtil.setChild(root, 0, leftChildPageNum)
 	leftChildMaxKey := NodeUtil.getMaxKey(leftChild)
 	InternalUtil.setKey(root, 0, leftChildMaxKey)

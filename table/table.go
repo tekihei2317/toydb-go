@@ -3,6 +3,7 @@ package table
 import (
 	"fmt"
 	"os"
+	"strings"
 	"toydb-go/persistence"
 	"unsafe"
 )
@@ -65,7 +66,14 @@ func (table *Table) InsertRow(row *Row) InsertResult {
 		}
 	}
 
-	persistence.LeafUtil.InsertCell(&table.pager, page, cursor.CellNum, uint32(row.Id), rowToBytes(row), table.rootPageNum)
+	persistence.LeafUtil.InsertCell(
+		&table.pager,
+		page,
+		cursor.CellNum,
+		uint32(row.Id),
+		rowToBytes(row),
+		table.rootPageNum,
+	)
 	return INSERT_SUCCESS
 }
 
@@ -76,7 +84,7 @@ func (table *Table) GetRowByCursor(pageNum uint32, cellNum uint32) Row {
 	destinationBytes := (*[unsafe.Sizeof(Row{})]byte)(unsafe.Pointer(row))
 
 	page := table.pager.GetPage(pageNum)
-	srcBytes := persistence.LeafUtil.GetCell(page, cellNum)
+	srcBytes := persistence.LeafUtil.GetCellValue(page, cellNum)
 	copy(destinationBytes[:], srcBytes)
 
 	return *row
@@ -156,14 +164,34 @@ func CursorAdvance(cursor *Cursor) {
 	}
 }
 
-// リーフノードを表示する
-func PrintLeafNode(table *Table) {
-	page := table.pager.GetPage(0)
-	numCells := persistence.LeafUtil.GetNumCells(page)
-	fmt.Printf("leaf (size %d)\n", numCells)
+func indent(level int) string {
+	return strings.Repeat("  ", level)
+}
 
-	for i := uint32(0); i < numCells; i++ {
-		key := persistence.LeafUtil.GetCellKey(page, i)
-		fmt.Printf("  - %d : %d\n", i, key)
+// ノードを表示する
+func PrintTree(table *Table, pageNum uint32, depth int) {
+	node := table.pager.GetPage(pageNum)
+	switch persistence.NodeUtil.GetNodeType(node) {
+	case persistence.NODE_LEAF:
+		numCells := persistence.LeafUtil.GetNumCells(node)
+		fmt.Printf("%s- leaf (size %d)\n", indent(depth), numCells)
+		for i := uint32(0); i < numCells; i++ {
+			fmt.Printf("%s- %d\n", indent(depth+1), persistence.LeafUtil.GetCellKey(node, i))
+		}
+	case persistence.NODE_INTERNAL:
+		numKeys := persistence.InternalUtil.GetNumKeys(node)
+		fmt.Printf("%s- internal (size %d)\n", indent(depth), numKeys)
+
+		for i := uint32(0); i < numKeys; i++ {
+			// 子ノードを表示する
+			childPageNum := persistence.InternalUtil.GetChild(node, i)
+			PrintTree(table, childPageNum, depth+1)
+
+			// キーを表示する
+			fmt.Printf("%s- key %d\n", indent(depth+1), persistence.InternalUtil.GetKey(node, i))
+		}
+		// 一番右の子ノードを表示する
+		childPageNum := persistence.InternalUtil.GetRightChild(node)
+		PrintTree(table, childPageNum, depth+1)
 	}
 }

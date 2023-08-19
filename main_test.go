@@ -226,12 +226,52 @@ func TestPrintOneNodeBtree(t *testing.T) {
 		"db > Executed.",
 		"db > Executed.",
 		"db > Tree:",
-		"leaf (size 3)",
-		"  - 0 : 1",
-		"  - 1 : 2",
-		"  - 2 : 3",
+		"- leaf (size 3)",
+		"  - 1",
+		"  - 2",
+		"  - 3",
 		"db > ",
 	}
+	if !reflect.DeepEqual(results, expected) {
+		t.Errorf("expected\n%v, but got\n%v", strings.Join(expected, "\n"), strings.Join(results, "\n"))
+	}
+}
+
+func TestPrintBtreeOfDepthTwo(t *testing.T) {
+	beforeEach()
+
+	scripts := []string{}
+	for i := range make([]int, 14) {
+		scripts = append(scripts, fmt.Sprintf("insert %d user%d person%d@example.com", i+1, i+1, i+1))
+	}
+	scripts = append(scripts, ".btree", ".exit")
+
+	results, err := runScripts(scripts)
+	check(err)
+
+	expected := []string{
+		"db > Tree:",
+		"- internal (size 1)",
+		"  - leaf (size 7)",
+		"    - 1",
+		"    - 2",
+		"    - 3",
+		"    - 4",
+		"    - 5",
+		"    - 6",
+		"    - 7",
+		"  - key 7",
+		"  - leaf (size 7)",
+		"    - 8",
+		"    - 9",
+		"    - 10",
+		"    - 11",
+		"    - 12",
+		"    - 13",
+		"    - 14",
+		"db > ",
+	}
+	results = results[14:]
 	if !reflect.DeepEqual(results, expected) {
 		t.Errorf("expected\n%v, but got\n%v", strings.Join(expected, "\n"), strings.Join(results, "\n"))
 	}

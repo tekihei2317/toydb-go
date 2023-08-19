@@ -53,6 +53,7 @@ func InitPager(name string) (*Pager, error) {
 	if pager.numPages == 0 {
 		node := pager.GetPage(0)
 		initLeafNode(node)
+		NodeUtil.setNodeRoot(node, true)
 	}
 
 	return &pager, err

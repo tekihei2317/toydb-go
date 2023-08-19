@@ -30,7 +30,7 @@ func ExecMetaCommand(command string, table *db.Table) MetaCommandResult {
 		return META_COMMAND_SUCCESS
 	} else if command == ".btree" {
 		fmt.Println("Tree:")
-		db.PrintLeafNode(table)
+		db.PrintTree(table, 0, 0)
 		return META_COMMAND_SUCCESS
 	} else {
 		return META_COMMAND_UNRECOGNIZED_COMMAND

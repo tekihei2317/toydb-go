@@ -90,6 +90,13 @@ func boolToByte(v bool) byte {
 	return 0
 }
 
+func byteToBool(v byte) bool {
+	if v == 1 {
+		return true
+	}
+	return false
+}
+
 // ノードの種類（INTERNAL、LEAF）を返す
 func (nodeUtil) GetNodeType(page *Page) NodeType {
 	bytes := page[NODE_TYPE_OFFSET : NODE_TYPE_OFFSET+NODE_TYPE_SIZE]
@@ -102,9 +109,10 @@ func (nodeUtil) setNodeRoot(page *Page, isRoot bool) {
 	copy(page[IS_ROOT_OFFSET:IS_ROOT_OFFSET+IS_ROOT_SIZE], bytes)
 }
 
+// ルートノードかどうかを返す
 func isNodeRoot(page *Page) bool {
-	// TODO:
-	return true
+	v := page[IS_ROOT_OFFSET : IS_ROOT_OFFSET+IS_ROOT_SIZE][0]
+	return byteToBool(v)
 }
 
 // ノードに含まれる最大のキーを返す
@@ -114,7 +122,7 @@ func (nodeUtil) getMaxKey(page *Page) uint32 {
 	var key uint32
 	if nodeType == NODE_INTERNAL {
 		// 最後のキーを返す
-		key = InternalUtil.getKey(page, InternalUtil.getNumKeys(page)-1)
+		key = InternalUtil.GetKey(page, InternalUtil.GetNumKeys(page)-1)
 	} else {
 		// 最後のセルのキーを返す
 		key = LeafUtil.GetCellKey(page, LeafUtil.GetNumCells(page)-1)
@@ -128,7 +136,7 @@ type internalUtil struct{}
 var InternalUtil internalUtil
 
 // 内部ノードに含まれるキーの数を返す
-func (internalUtil) getNumKeys(page *Page) uint32 {
+func (internalUtil) GetNumKeys(page *Page) uint32 {
 	bytes := page[INTERNAL_NODE_NUM_KEYS_OFFSET : INTERNAL_NODE_NUM_KEYS_OFFSET+INTERNAL_NODE_NUM_KEYS_SIZE]
 	return binary.LittleEndian.Uint32(bytes)
 }
@@ -140,7 +148,7 @@ func (internalUtil) setNumKeys(page *Page, numKeys uint32) {
 }
 
 // 一番右の子供のページ番号？を返す
-func (internalUtil) getRightChild(page *Page) uint32 {
+func (internalUtil) GetRightChild(page *Page) uint32 {
 	bytes := page[INTERNAL_NODE_RIGHT_CHILD_OFFSET : INTERNAL_NODE_RIGHT_CHILD_OFFSET+INTERNAL_NODE_RIGHT_CHILD_SIZE]
 	return binary.LittleEndian.Uint32(bytes)
 }
@@ -151,9 +159,25 @@ func (internalUtil) setRightChild(page *Page, rightChildPageNum uint32) {
 	copy(page[INTERNAL_NODE_RIGHT_CHILD_OFFSET:INTERNAL_NODE_RIGHT_CHILD_OFFSET+INTERNAL_NODE_RIGHT_CHILD_SIZE], bytes)
 }
 
+// 子供のページ番号を取得する
+func (internalUtil) GetChild(page *Page, cellNum uint32) uint32 {
+	numKeys := InternalUtil.GetNumKeys(page)
+
+	if cellNum > numKeys {
+		fmt.Printf("Tried to get cellNum %d > numKeys %d\n", cellNum, numKeys)
+		os.Exit(1)
+		return 0
+	} else if cellNum == numKeys {
+		return InternalUtil.GetRightChild(page)
+	} else {
+		start, end := InternalUtil.getChildPos(cellNum)
+		return binary.LittleEndian.Uint32(page[start:end])
+	}
+}
+
 // 子供のページ番号を設定する
 func (internalUtil) setChild(page *Page, cellNum uint32, pageNum uint32) {
-	numKeys := InternalUtil.getNumKeys(page)
+	numKeys := InternalUtil.GetNumKeys(page)
 
 	// インデックスがnumKeysまでのchildがある
 	if cellNum > numKeys {
@@ -169,8 +193,8 @@ func (internalUtil) setChild(page *Page, cellNum uint32, pageNum uint32) {
 	}
 }
 
-// キーをm取得する
-func (internalUtil) getKey(page *Page, cellNum uint32) uint32 {
+// キーを取得する
+func (internalUtil) GetKey(page *Page, cellNum uint32) uint32 {
 	start, end := InternalUtil.getKeyPos(cellNum)
 	return binary.LittleEndian.Uint32(page[start:end])
 }
@@ -230,7 +254,6 @@ func (leafUtil) InsertCell(pager *Pager, page *Page, cellNum uint32, key uint32,
 	numCells := LeafUtil.GetNumCells(page)
 
 	if numCells >= LEAF_NODE_MAX_CELLS {
-		// leafNodeSplitAndInsert()
 		leafNodeSplitAndInsert(pager, page, cellNum, key, value, rootPageNum)
 		return
 	}
@@ -242,7 +265,6 @@ func (leafUtil) InsertCell(pager *Pager, page *Page, cellNum uint32, key uint32,
 			copy(page[toStart:toEnd], LeafUtil.GetCell(page, i-1))
 		}
 	}
-
 	LeafUtil.IncrementNumCells(page)
 	LeafUtil.WriteCellKey(page, cellNum, key)
 	LeafUtil.WriteCellValue(page, cellNum, value)
@@ -273,7 +295,13 @@ func (leafUtil) WriteCellKey(page *Page, cellNum uint32, key uint32) {
 	copy(page[start:end], uint32ToBytes(key))
 }
 
-// セルの値をページに書き込む
+// セルのvalueを返す
+func (leafUtil) GetCellValue(page *Page, cellNum uint32) []byte {
+	start, end := LeafUtil.getValuePos(cellNum)
+	return page[start:end]
+}
+
+// セルのvalueをページに書き込む
 func (leafUtil) WriteCellValue(page *Page, cellNum uint32, value []byte) {
 	start, end := LeafUtil.getValuePos(cellNum)
 	copy(page[start:end], value)
