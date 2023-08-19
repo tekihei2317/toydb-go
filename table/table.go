@@ -50,24 +50,22 @@ const (
 
 // 行を挿入する
 func (table *Table) InsertRow(row *Row) InsertResult {
-	// 現時点では、rootPageがリーフノードであるとする
+	// 現時点では、rootPageがリーフノードであると仮定して書いている
 	page := table.pager.GetPage(table.rootPageNum)
 	numCells := persistence.LeafUtil.GetNumCells(page)
-	if numCells >= persistence.LEAF_NODE_MAX_CELLS {
-		return INSERT_TABLE_FULL
-	}
 
 	keyToInsert := uint32(row.Id)
 	cursor := TableFind(table, keyToInsert)
 
 	if cursor.CellNum < numCells {
+		// 一番後ろに挿入する以外の場合は、キーが重複していないか確認する
 		keyAtCursor := persistence.LeafUtil.GetCellKey(page, cursor.CellNum)
 		if keyAtCursor == keyToInsert {
 			return INSERT_DUPLICATE_KEY
 		}
 	}
 
-	persistence.LeafUtil.InsertCell(page, cursor.CellNum, uint32(row.Id), rowToBytes(row))
+	persistence.LeafUtil.InsertCell(&table.pager, page, cursor.CellNum, uint32(row.Id), rowToBytes(row), table.rootPageNum)
 	return INSERT_SUCCESS
 }
 
@@ -110,7 +108,7 @@ func TableStart(table *Table) Cursor {
 func TableFind(table *Table, key uint32) *Cursor {
 	rootNode := table.pager.GetPage(table.rootPageNum)
 
-	if persistence.LeafUtil.GetNodeType(rootNode) == persistence.NODE_LEAF {
+	if persistence.NodeUtil.GetNodeType(rootNode) == persistence.NODE_LEAF {
 		// リーフノードから探す
 		return leafNodeFind(table, table.rootPageNum, key)
 	} else {

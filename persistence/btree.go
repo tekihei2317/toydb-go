@@ -13,36 +13,6 @@ const (
 	NODE_LEAF
 )
 
-// Common Node Header Layout
-const (
-	NODE_TYPE_SIZE          = 1
-	NODE_TYPE_OFFSET        = 0
-	IS_ROOT_SIZE            = 1
-	IS_ROOT_OFFSET          = NODE_TYPE_SIZE
-	PARENT_POINTER_SIZE     = 4
-	PARENT_POINTER_OFFSET   = IS_ROOT_OFFSET + IS_ROOT_SIZE
-	COMMON_NODE_HEADER_SIZE = NODE_TYPE_SIZE + IS_ROOT_SIZE + PARENT_POINTER_SIZE
-)
-
-// Leaf Node Header Layout(Common Header + Cells size)
-const (
-	LEAF_NODE_NUM_CELLS_SIZE   = 4
-	LEAF_NODE_NUM_CELLS_OFFSET = COMMON_NODE_HEADER_SIZE
-	LEAF_NODE_HEADER_SIZE      = COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE
-)
-
-// Leaf Node Body Layout
-const (
-	LEAF_NODE_KEY_OFFSET   = 0
-	LEAF_NODE_KEY_SIZE     = 4
-	LEAF_NODE_VALUE_OFFSET = LEAF_NODE_KEY_SIZE
-	LEAF_NODE_VALUE_SIZE   = ROW_SIZE
-	LEAF_NODE_CELL_SIZE    = LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE
-
-	LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_HEADER_SIZE
-	LEAF_NODE_MAX_CELLS       = LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE
-)
-
 func uint32ToBytes(v uint32) []byte {
 	// binary.MaxVariantLen32 = 5の長さを確保しないと、クラッシュすることがあるらしい（4バイトなのになんでだろう）
 	bytes := make([]byte, 4)
@@ -50,105 +20,68 @@ func uint32ToBytes(v uint32) []byte {
 	return bytes
 }
 
-// リーフノードに関するユーティリティ関数
-type leafUtil struct{}
+// リーフノードを分割してから、新しいセルを挿入する
+// リーフノードは、左と右に半分ずつ分割する
+func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32, value []byte, rootPageNum uint32) {
+	// pageは分割するページ
+	oldNode := page
+	// 新しいページを取得する（右）
+	newNode, rightChildPageNum := pager.GetNewPage()
+	initLeafNode(newNode)
 
-var LeafUtil leafUtil
+	// LEAF_NODE_MAX_CELLS+1個のセルを、左右に分割する
+	for i := uint32(LEAF_NODE_MAX_CELLS); i >= 0; i-- {
+		var dstNode *Page
+		if i >= LEAF_NODE_LEFT_SPLIT_COUNT {
+			dstNode = newNode
+		} else {
+			dstNode = oldNode
+		}
+		dstCellNum := i % LEAF_NODE_LEFT_SPLIT_COUNT
 
-// ノードの種類（INTERNAL、LEAF）を返す
-func (leafUtil) GetNodeType(page *Page) NodeType {
-	bytes := page[NODE_TYPE_OFFSET : NODE_TYPE_OFFSET+NODE_TYPE_SIZE]
-	return NodeType(bytes[0])
-}
-
-func (leafUtil) SetNodeType(page *Page, nodeType NodeType) {
-	bytes := []byte{byte(nodeType)}
-	copy(page[NODE_TYPE_OFFSET:NODE_TYPE_OFFSET+NODE_TYPE_SIZE], bytes)
-}
-
-// ページのセルの数を返す
-func (leafUtil) GetNumCells(page *Page) uint32 {
-	numCellsBytes := page[LEAF_NODE_NUM_CELLS_OFFSET : LEAF_NODE_NUM_CELLS_OFFSET+LEAF_NODE_NUM_CELLS_SIZE]
-	return binary.LittleEndian.Uint32(numCellsBytes)
-}
-
-// セルの個数をページに書き込む
-func (leafUtil) WriteNumCells(page *Page, numCells uint32) {
-	bytes := uint32ToBytes(numCells)
-
-	copy(page[LEAF_NODE_NUM_CELLS_OFFSET:LEAF_NODE_NUM_CELLS_OFFSET+LEAF_NODE_NUM_CELLS_SIZE], bytes)
-}
-
-// セルの個数を1増やす
-func (leafUtil) IncrementNumCells(page *Page) {
-	numCells := LeafUtil.GetNumCells(page)
-	LeafUtil.WriteNumCells(page, numCells+1)
-}
-
-// ノードにセルを挿入する
-func (leafUtil) InsertCell(page *Page, cellNum uint32, key uint32, value []byte) {
-	numCells := LeafUtil.GetNumCells(page)
-
-	if numCells >= LEAF_NODE_MAX_CELLS {
-		fmt.Printf("Need to implement splitting a leaf node.\n")
-		os.Exit(1)
-	}
-
-	if cellNum < numCells {
-		// cellNumに挿入できるように、それより後ろにあるセルを1つずつずらす
-		for i := numCells; i > cellNum; i-- {
-			toStart, toEnd := LeafUtil.getCellPos(i)
-			copy(page[toStart:toEnd], LeafUtil.GetCell(page, i-1))
+		if i == cellNum {
+			// 挿入する位置の場合は、挿入する
+			LeafUtil.WriteCellKey(dstNode, dstCellNum, key)
+			LeafUtil.WriteCellValue(dstNode, dstCellNum, value)
+		} else if i > cellNum {
+			// 挿入する位置より後ろの場合は、後ろに一つずらす
+			LeafUtil.WriteCell(dstNode, dstCellNum, LeafUtil.GetCell(dstNode, i-1))
+		} else {
+			// 挿入する位置より前の場合は、そのままずらす（？）
+			LeafUtil.WriteCell(dstNode, dstCellNum, LeafUtil.GetCell(dstNode, i))
 		}
 	}
+	LeafUtil.WriteNumCells(oldNode, LEAF_NODE_LEFT_SPLIT_COUNT)
+	LeafUtil.WriteNumCells(newNode, LEAF_NODE_RIGHT_SPLIT_COUNT)
 
-	LeafUtil.IncrementNumCells(page)
-	LeafUtil.WriteCellKey(page, cellNum, key)
-	LeafUtil.WriteCellValue(page, cellNum, value)
+	if isNodeRoot(oldNode) {
+		// 新しいルートノードを作成する
+		createNewRoot(pager, rootPageNum, rightChildPageNum)
+		return
+	} else {
+		// 分割したリーフノードがルートではない場合は、親ノードの更新が必要
+		fmt.Println("Need to implement updating parent after split")
+		os.Exit(1)
+	}
 }
 
-// リーフノードのセルの値を返す
-func (leafUtil) GetCell(page *Page, cellNum uint32) []byte {
-	start, end := LeafUtil.getCellPos(cellNum)
-	return page[start:end]
-}
+// ルートノードを分割したときに、新しいルートノードを作成する。
+// 古いルートノード（左のノード）は、新しく作成したノードにコピーする。
+// 新しく作成したルートノードには、左のノードのキーの最大値と、左右のノードのポインタ（ページ番号）をセットする。
+func createNewRoot(pager *Pager, rootPageNum uint32, rightChildPageNum uint32) {
+	root := pager.GetPage(rootPageNum)
+	leftChild, leftChildPageNum := pager.GetNewPage()
 
-// セルのキーの値を返す
-func (leafUtil) GetCellKey(page *Page, cellNum uint32) uint32 {
-	start, end := LeafUtil.getKeyPos(cellNum)
-	key := binary.LittleEndian.Uint32(page[start:end])
-	return key
-}
+	// ルートノードを左のノードにコピーする
+	copy(leftChild[:], root[:])
+	NodeUtil.setNodeRoot(leftChild, false)
 
-// セルのキーをページに書き込む
-func (leafUtil) WriteCellKey(page *Page, cellNum uint32, key uint32) {
-	start, end := LeafUtil.getKeyPos(cellNum)
-	copy(page[start:end], uint32ToBytes(key))
-}
-
-// セルの値をページに書き込む
-func (leafUtil) WriteCellValue(page *Page, cellNum uint32, value []byte) {
-	start, end := LeafUtil.getCellPos(cellNum)
-	copy(page[start:end], value)
-}
-
-// リーフノードのセルの位置を返す
-func (leafUtil) getCellPos(cellNum uint32) (uint32, uint32) {
-	cellStart := LEAF_NODE_HEADER_SIZE + cellNum*LEAF_NODE_CELL_SIZE
-
-	return cellStart, cellStart + LEAF_NODE_CELL_SIZE
-}
-
-// リーフノードのキーの位置を返す
-func (leafUtil) getKeyPos(cellNum uint32) (uint32, uint32) {
-	cellStart, _ := LeafUtil.getCellPos(cellNum)
-
-	return cellStart, cellStart + LEAF_NODE_KEY_SIZE
-}
-
-// リーフノードの値の位置を返す
-func (leafUtil) getValuePos(cellNum uint32) (uint32, uint32) {
-	cellStart, _ := LeafUtil.getCellPos(cellNum)
-
-	return cellStart + LEAF_NODE_KEY_SIZE, cellStart + LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE
+	// 新しいルートノードにデータをセットする
+	initInternalNode(root)
+	NodeUtil.setNodeRoot(root, true)
+	InternalUtil.setNumKeys(root, 1)
+	InternalUtil.setChild(root, 0, leftChildPageNum)
+	leftChildMaxKey := NodeUtil.getMaxKey(leftChild)
+	InternalUtil.setKey(root, 0, leftChildMaxKey)
+	InternalUtil.setRightChild(root, rightChildPageNum)
 }
