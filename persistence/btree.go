@@ -53,6 +53,8 @@ func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32
 	}
 	LeafUtil.WriteNumCells(oldNode, LEAF_NODE_LEFT_SPLIT_COUNT)
 	LeafUtil.WriteNumCells(newNode, LEAF_NODE_RIGHT_SPLIT_COUNT)
+	LeafUtil.setNextLeaf(newNode, LeafUtil.GetNextLeaf(oldNode))
+	LeafUtil.setNextLeaf(oldNode, rightChildPageNum)
 
 	if isNodeRoot(oldNode) {
 		// 新しいルートノードを作成する

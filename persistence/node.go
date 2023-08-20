@@ -25,7 +25,10 @@ const (
 	// ノードに含まれるセル（key/valueのペア）の数
 	LEAF_NODE_NUM_CELLS_SIZE   = 4
 	LEAF_NODE_NUM_CELLS_OFFSET = COMMON_NODE_HEADER_SIZE
-	LEAF_NODE_HEADER_SIZE      = COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE
+	// 右隣のリーフノードのページ番号
+	LEAF_NODE_NEXT_LEAF_SIZE   = 4
+	LEAF_NODE_NEXT_LEAF_OFFSET = LEAF_NODE_NUM_CELLS_OFFSET + LEAF_NODE_NUM_CELLS_SIZE
+	LEAF_NODE_HEADER_SIZE      = COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE + LEAF_NODE_NEXT_LEAF_SIZE
 )
 
 // Leaf Node Body Layout
@@ -65,6 +68,7 @@ const (
 func initLeafNode(node *Page) {
 	NodeUtil.setNodeType(node, NODE_LEAF)
 	NodeUtil.setNodeRoot(node, false)
+	LeafUtil.setNextLeaf(node, 0) // 0は隣のノードがないことを表す
 }
 
 func initInternalNode(node *Page) {
@@ -241,6 +245,18 @@ func (leafUtil) WriteNumCells(page *Page, numCells uint32) {
 	bytes := uint32ToBytes(numCells)
 
 	copy(page[LEAF_NODE_NUM_CELLS_OFFSET:LEAF_NODE_NUM_CELLS_OFFSET+LEAF_NODE_NUM_CELLS_SIZE], bytes)
+}
+
+// 右隣のリーフノードのページ番号を返す
+func (leafUtil) GetNextLeaf(page *Page) uint32 {
+	bytes := page[LEAF_NODE_NEXT_LEAF_OFFSET : LEAF_NODE_NEXT_LEAF_OFFSET+LEAF_NODE_NEXT_LEAF_SIZE]
+	return binary.LittleEndian.Uint32(bytes)
+}
+
+// 右隣のリーフノードのページ番号を設定する
+func (leafUtil) setNextLeaf(page *Page, pageNum uint32) {
+	bytes := uint32ToBytes(pageNum)
+	copy(page[LEAF_NODE_NEXT_LEAF_OFFSET:LEAF_NODE_NEXT_LEAF_OFFSET+LEAF_NODE_NEXT_LEAF_SIZE], bytes)
 }
 
 // セルの個数を1増やす

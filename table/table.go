@@ -86,19 +86,14 @@ type Cursor struct {
 	EndOfTable bool
 }
 
-func TableStart(table *Table) Cursor {
-	endOfTable := false
-	numCells := persistence.LeafUtil.GetNumCells(table.pager.GetPage(table.rootPageNum))
-	if numCells == 0 {
-		endOfTable = true
+func TableStart(table *Table) *Cursor {
+	cursor := TableFind(table, 0)
+	numCells := persistence.LeafUtil.GetNumCells(table.pager.GetPage(cursor.PageNum))
+	if cursor.CellNum == numCells {
+		cursor.EndOfTable = true
 	}
 
-	return Cursor{
-		table:      table,
-		PageNum:    table.rootPageNum,
-		CellNum:    0,
-		EndOfTable: endOfTable,
-	}
+	return cursor
 }
 
 // キー以上の最初のカーソルを返す
@@ -186,7 +181,14 @@ func CursorAdvance(cursor *Cursor) {
 	cursor.CellNum += 1
 
 	if cursor.CellNum >= numCells {
-		cursor.EndOfTable = true
+		nextPageNum := persistence.LeafUtil.GetNextLeaf(page)
+
+		if nextPageNum == 0 {
+			cursor.EndOfTable = true
+		} else {
+			cursor.PageNum = nextPageNum
+			cursor.CellNum = 0
+		}
 	}
 }
 

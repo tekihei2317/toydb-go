@@ -59,7 +59,7 @@ func executeSelect(statement core.Statement, table *db.Table) ExecuteResult {
 	for !cursor.EndOfTable {
 		row := table.GetRowByCursor(cursor.PageNum, cursor.CellNum)
 		printRow(&row)
-		db.CursorAdvance(&cursor)
+		db.CursorAdvance(cursor)
 	}
 
 	return EXECUTE_SUCCESS
