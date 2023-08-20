@@ -2,7 +2,7 @@ package table
 
 import (
 	"fmt"
-	"os"
+	"math"
 	"strings"
 	"toydb-go/persistence"
 	"unsafe"
@@ -51,20 +51,9 @@ const (
 
 // 行を挿入する
 func (table *Table) InsertRow(row *Row) InsertResult {
-	// 現時点では、rootPageがリーフノードであると仮定して書いている
-	page := table.pager.GetPage(table.rootPageNum)
-	numCells := persistence.LeafUtil.GetNumCells(page)
-
 	keyToInsert := uint32(row.Id)
 	cursor := TableFind(table, keyToInsert)
-
-	if cursor.CellNum < numCells {
-		// 一番後ろに挿入する以外の場合は、キーが重複していないか確認する
-		keyAtCursor := persistence.LeafUtil.GetCellKey(page, cursor.CellNum)
-		if keyAtCursor == keyToInsert {
-			return INSERT_DUPLICATE_KEY
-		}
-	}
+	page := table.pager.GetPage(cursor.PageNum)
 
 	persistence.LeafUtil.InsertCell(
 		&table.pager,
@@ -120,9 +109,46 @@ func TableFind(table *Table, key uint32) *Cursor {
 		// リーフノードから探す
 		return leafNodeFind(table, table.rootPageNum, key)
 	} else {
-		fmt.Println("Need to implement searching an internal node")
-		os.Exit(1)
-		return &Cursor{}
+		return internalNodeFind(table, table.rootPageNum, key)
+	}
+}
+
+// 内部ノードから、リーフノードのキー以上の最初のカーソルを返す
+func internalNodeFind(table *Table, pageNum uint32, key uint32) *Cursor {
+	page := table.pager.GetPage(pageNum)
+	numKeys := persistence.InternalUtil.GetNumKeys(page)
+
+	// 内部ノードのキーを二分探索して、key以上の最初の要素が含まれる子ノードを見つける
+	ng := -1
+	ok := int(numKeys) + 1
+	for ok-ng > 1 {
+		index := (ng + ok) / 2
+		var internalNodeKey uint32
+		if uint32(index) == numKeys {
+			// インデックスがnumKeysのキーは存在せず、ノードnumKeysは条件を満たすため、最大値を入れる
+			internalNodeKey = math.MaxUint32
+		} else {
+			internalNodeKey = persistence.InternalUtil.GetKey(page, uint32(index))
+		}
+
+		if internalNodeKey < key {
+			// ノードindexに含まれる値はkeyより小さいため、条件を満たさない
+			ng = index
+		} else {
+			ok = index
+		}
+	}
+
+	childPageNum := persistence.InternalUtil.GetChild(page, uint32(ok))
+	childPage := table.pager.GetPage(childPageNum)
+
+	switch persistence.NodeUtil.GetNodeType(childPage) {
+	case persistence.NODE_INTERNAL:
+		return internalNodeFind(table, childPageNum, key)
+	case persistence.NODE_LEAF:
+		return leafNodeFind(table, childPageNum, key)
+	default:
+		panic("Invalid node type")
 	}
 }
 
@@ -171,6 +197,7 @@ func indent(level int) string {
 // ノードを表示する
 func PrintTree(table *Table, pageNum uint32, depth int) {
 	node := table.pager.GetPage(pageNum)
+
 	switch persistence.NodeUtil.GetNodeType(node) {
 	case persistence.NODE_LEAF:
 		numCells := persistence.LeafUtil.GetNumCells(node)
