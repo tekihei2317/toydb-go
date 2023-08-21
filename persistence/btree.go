@@ -2,8 +2,6 @@ package persistence
 
 import (
 	"encoding/binary"
-	"fmt"
-	"os"
 )
 
 type NodeType uint8
@@ -24,6 +22,7 @@ func uint32ToBytes(v uint32) []byte {
 // リーフノードは、左と右に半分ずつ分割する。pageは分割するページ。
 func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32, value []byte, rootPageNum uint32) {
 	oldNode := page
+	oldMax := NodeUtil.getMaxKey(oldNode)
 	// 新しいページを取得する（右）
 	newNode, rightChildPageNum := pager.GetNewPage()
 	initLeafNode(newNode)
@@ -53,6 +52,8 @@ func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32
 	}
 	LeafUtil.WriteNumCells(oldNode, LEAF_NODE_LEFT_SPLIT_COUNT)
 	LeafUtil.WriteNumCells(newNode, LEAF_NODE_RIGHT_SPLIT_COUNT)
+	// TODO: 親ノードの番号を取得して設定する（取れるかな）
+	// NodeUtil.setParent(newNode, )
 	LeafUtil.setNextLeaf(newNode, LeafUtil.GetNextLeaf(oldNode))
 	LeafUtil.setNextLeaf(oldNode, rightChildPageNum)
 
@@ -61,9 +62,13 @@ func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32
 		createNewRoot(pager, rootPageNum, rightChildPageNum)
 		return
 	} else {
-		// 分割したリーフノードがルートではない場合は、親ノードの更新が必要
-		fmt.Println("Need to implement updating parent after split")
-		os.Exit(1)
+		// 分割したリーフノードがルートではない場合は、親ノードを更新する
+		parentPageNum := NodeUtil.GetParent(oldNode)
+		newMax := NodeUtil.getMaxKey(oldNode)
+		parent := pager.GetPage(parentPageNum)
+
+		updateInternalNodeKey(parent, oldMax, newMax)
+		return
 	}
 }
 
@@ -87,4 +92,36 @@ func createNewRoot(pager *Pager, rootPageNum uint32, rightChildPageNum uint32) {
 	leftChildMaxKey := NodeUtil.getMaxKey(leftChild)
 	InternalUtil.setKey(root, 0, leftChildMaxKey)
 	InternalUtil.setRightChild(root, rightChildPageNum)
+
+	rightChild := pager.GetPage(rightChildPageNum)
+	NodeUtil.setParent(leftChild, rootPageNum)
+	NodeUtil.setParent(rightChild, rootPageNum)
+}
+
+// リーフノードを分割した後に、内部ノードのキーを更新する
+func updateInternalNodeKey(node *Page, oldKey uint32, newKey uint32) {
+	oldChildIndex := internalNodeFindChild(node, oldKey)
+	// oldChildIndexが、nodeのキーの数と同じだった場合は大丈夫？
+	InternalUtil.setKey(node, oldChildIndex, newKey)
+}
+
+// キーが含まれる子ノードのインデックスを返す
+func internalNodeFindChild(node *Page, key uint32) uint32 {
+	numKeys := InternalUtil.GetNumKeys(node)
+
+	// 内部ノードのキーを二分探索して、key以上の最初の要素が含まれる子ノードを見つける
+	ng := -1
+	ok := int(numKeys)
+	for ok-ng > 1 {
+		index := (ng + ok) / 2
+		internalNodeKey := InternalUtil.GetKey(node, uint32(index))
+
+		if internalNodeKey < key {
+			// ノードindexに含まれる値internalNodeKey以下である。つまりkeyより小さいため、条件を満たさない。
+			ng = index
+		} else {
+			ok = index
+		}
+	}
+	return uint32(ok)
 }

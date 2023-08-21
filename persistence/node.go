@@ -119,6 +119,18 @@ func isNodeRoot(page *Page) bool {
 	return byteToBool(v)
 }
 
+// 親ノードを設定する
+func (nodeUtil) setParent(page *Page, parentPageNum uint32) {
+	bytes := uint32ToBytes(parentPageNum)
+	copy(page[PARENT_POINTER_OFFSET:PARENT_POINTER_OFFSET+PARENT_POINTER_SIZE], bytes)
+}
+
+// 親ノードを取得する
+func (nodeUtil) GetParent(page *Page) uint32 {
+	bytes := page[PARENT_POINTER_OFFSET : PARENT_POINTER_OFFSET+PARENT_POINTER_SIZE]
+	return binary.LittleEndian.Uint32(bytes)
+}
+
 // ノードに含まれる最大のキーを返す
 func (nodeUtil) getMaxKey(page *Page) uint32 {
 	nodeType := NodeUtil.GetNodeType(page)
@@ -204,9 +216,9 @@ func (internalUtil) GetKey(page *Page, cellNum uint32) uint32 {
 }
 
 // キーを設定する
-func (internalUtil) setKey(page *Page, cellNum uint32, pageNum uint32) {
+func (internalUtil) setKey(page *Page, cellNum uint32, key uint32) {
 	start, end := InternalUtil.getKeyPos(cellNum)
-	copy(page[start:end], uint32ToBytes(pageNum))
+	copy(page[start:end], uint32ToBytes(key))
 }
 
 // セルの位置を返す
