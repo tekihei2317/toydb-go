@@ -65,6 +65,8 @@ const (
 	INTERNAL_NODE_CELL_SIZE  = INTERNAL_NODE_CHILD_SIZE + INTERNAL_NODE_KEY_SIZE
 )
 
+const INTERNAL_NODE_MAX_CELLS = 3
+
 func initLeafNode(node *Page) {
 	NodeUtil.setNodeType(node, NODE_LEAF)
 	NodeUtil.setNodeRoot(node, false)
@@ -163,16 +165,28 @@ func (internalUtil) setNumKeys(page *Page, numKeys uint32) {
 	copy(page[INTERNAL_NODE_NUM_KEYS_OFFSET:INTERNAL_NODE_NUM_KEYS_OFFSET+INTERNAL_NODE_NUM_KEYS_SIZE], bytes)
 }
 
-// 一番右の子供のページ番号？を返す
+// 一番右の子供のページ番号を返す
 func (internalUtil) GetRightChild(page *Page) uint32 {
 	bytes := page[INTERNAL_NODE_RIGHT_CHILD_OFFSET : INTERNAL_NODE_RIGHT_CHILD_OFFSET+INTERNAL_NODE_RIGHT_CHILD_SIZE]
 	return binary.LittleEndian.Uint32(bytes)
 }
 
-// 一番右の子供のページ番号？を設定する
+// 一番右の子供のページ番号を設定する
 func (internalUtil) setRightChild(page *Page, rightChildPageNum uint32) {
 	bytes := uint32ToBytes(rightChildPageNum)
 	copy(page[INTERNAL_NODE_RIGHT_CHILD_OFFSET:INTERNAL_NODE_RIGHT_CHILD_OFFSET+INTERNAL_NODE_RIGHT_CHILD_SIZE], bytes)
+}
+
+// i番目のセル（ポインタ+キー）を取得する
+func (internalUtil) GetCell(page *Page, cellNum uint32) []byte {
+	start, end := InternalUtil.getCellPos(cellNum)
+	return page[start:end]
+}
+
+// i番目のセルを設定する
+func (internalUtil) setCell(page *Page, cellNum uint32, cell []byte) {
+	start, end := InternalUtil.getCellPos(cellNum)
+	copy(page[start:end], cell)
 }
 
 // 子供のページ番号を取得する

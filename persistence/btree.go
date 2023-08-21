@@ -2,6 +2,8 @@ package persistence
 
 import (
 	"encoding/binary"
+	"fmt"
+	"os"
 )
 
 type NodeType uint8
@@ -52,7 +54,7 @@ func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32
 	}
 	LeafUtil.WriteNumCells(oldNode, LEAF_NODE_LEFT_SPLIT_COUNT)
 	LeafUtil.WriteNumCells(newNode, LEAF_NODE_RIGHT_SPLIT_COUNT)
-	// TODO: 親ノードの番号を取得して設定する（取れるかな）
+	// TODO: 親ノードの番号を取得して設定する
 	// NodeUtil.setParent(newNode, )
 	LeafUtil.setNextLeaf(newNode, LeafUtil.GetNextLeaf(oldNode))
 	LeafUtil.setNextLeaf(oldNode, rightChildPageNum)
@@ -68,6 +70,7 @@ func leafNodeSplitAndInsert(pager *Pager, page *Page, cellNum uint32, key uint32
 		parent := pager.GetPage(parentPageNum)
 
 		updateInternalNodeKey(parent, oldMax, newMax)
+		internalNodeInsert(pager, parentPageNum, rightChildPageNum)
 		return
 	}
 }
@@ -124,4 +127,40 @@ func internalNodeFindChild(node *Page, key uint32) uint32 {
 		}
 	}
 	return uint32(ok)
+}
+
+// 追加したページのキーとポインタを、内部ノードの適切な位置に追加する
+func internalNodeInsert(pager *Pager, parentPageNum uint32, childPageNum uint32) {
+	parent := pager.GetPage(parentPageNum)
+	child := pager.GetPage(childPageNum)
+	childMaxKey := NodeUtil.getMaxKey(child)
+	index := internalNodeFindChild(parent, childMaxKey)
+
+	originalNumKeys := InternalUtil.GetNumKeys(parent)
+	if originalNumKeys >= INTERNAL_NODE_MAX_CELLS {
+		fmt.Println("Need to implement splitting internal node")
+		os.Exit(1)
+	}
+
+	InternalUtil.setNumKeys(parent, originalNumKeys+1)
+	rightChildPageNum := InternalUtil.GetRightChild(parent)
+	rightChild := pager.GetPage(rightChildPageNum)
+	rightChildMaxKey := NodeUtil.getMaxKey(rightChild)
+
+	if childMaxKey > rightChildMaxKey {
+		// 一番右側に挿入する場合
+		// 一番右側のセルに、旧右childの値を設定する
+		InternalUtil.setChild(parent, originalNumKeys, rightChildPageNum)
+		InternalUtil.setKey(parent, originalNumKeys, rightChildMaxKey)
+
+		// 新右childのページ番号を設定する
+		InternalUtil.setRightChild(parent, childPageNum)
+	} else {
+		// indexに挿入できるように、ずらす
+		for i := originalNumKeys; i > index; i-- {
+			InternalUtil.setCell(parent, i, InternalUtil.GetCell(parent, i-1))
+		}
+		InternalUtil.setChild(parent, index, childPageNum)
+		InternalUtil.setKey(parent, index, childMaxKey)
+	}
 }
