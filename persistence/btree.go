@@ -2,8 +2,7 @@ package persistence
 
 import (
 	"encoding/binary"
-	"fmt"
-	"os"
+	"math"
 )
 
 type NodeType uint8
@@ -129,7 +128,12 @@ func internalNodeFindChild(node *Page, key uint32) uint32 {
 	return uint32(ok)
 }
 
-// 追加したページのキーとポインタを、内部ノードの適切な位置に追加する
+const INVALID_PAGE_NUM = math.MaxUint32
+
+func internalNodeSplitAndInsert(pager *Pager, parentPageNum uint32, childPageNum uint32) {
+}
+
+// 新たに追加したノードとキーを、内部ノードの適切な位置に追加する
 func internalNodeInsert(pager *Pager, parentPageNum uint32, childPageNum uint32) {
 	parent := pager.GetPage(parentPageNum)
 	child := pager.GetPage(childPageNum)
@@ -138,13 +142,20 @@ func internalNodeInsert(pager *Pager, parentPageNum uint32, childPageNum uint32)
 
 	originalNumKeys := InternalUtil.GetNumKeys(parent)
 	if originalNumKeys >= INTERNAL_NODE_MAX_CELLS {
-		fmt.Println("Need to implement splitting internal node")
-		os.Exit(1)
+		// 内部ノードの容量がいっぱいの場合、分割する
+		internalNodeSplitAndInsert(pager, parentPageNum, childPageNum)
+		return
 	}
 
-	InternalUtil.setNumKeys(parent, originalNumKeys+1)
 	rightChildPageNum := InternalUtil.GetRightChild(parent)
+	if rightChildPageNum == INVALID_PAGE_NUM {
+		// ?
+		InternalUtil.setRightChild(parent, childPageNum)
+		return
+	}
+
 	rightChild := pager.GetPage(rightChildPageNum)
+	InternalUtil.setNumKeys(parent, originalNumKeys+1)
 	rightChildMaxKey := NodeUtil.getMaxKey(rightChild)
 
 	if childMaxKey > rightChildMaxKey {

@@ -77,6 +77,7 @@ func initInternalNode(node *Page) {
 	NodeUtil.setNodeType(node, NODE_INTERNAL)
 	NodeUtil.setNodeRoot(node, false)
 	InternalUtil.setNumKeys(node, 0)
+	InternalUtil.setRightChild(node, INVALID_PAGE_NUM)
 }
 
 // ノードに関するユーティリティ関数
@@ -198,7 +199,12 @@ func (internalUtil) GetChild(page *Page, cellNum uint32) uint32 {
 		os.Exit(1)
 		return 0
 	} else if cellNum == numKeys {
-		return InternalUtil.GetRightChild(page)
+		rightChild := InternalUtil.GetRightChild(page)
+		if rightChild == INVALID_PAGE_NUM {
+			fmt.Println("Tried to access right child of node, but was invalid page")
+			os.Exit(1)
+		}
+		return rightChild
 	} else {
 		start, end := InternalUtil.getChildPos(cellNum)
 		return binary.LittleEndian.Uint32(page[start:end])

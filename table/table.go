@@ -211,16 +211,18 @@ func PrintTree(table *Table, pageNum uint32, depth int) {
 		numKeys := persistence.InternalUtil.GetNumKeys(node)
 		fmt.Printf("%s- internal (size %d)\n", indent(depth), numKeys)
 
-		for i := uint32(0); i < numKeys; i++ {
-			// 子ノードを表示する
-			childPageNum := persistence.InternalUtil.GetChild(node, i)
-			PrintTree(table, childPageNum, depth+1)
+		if numKeys > 0 {
+			for i := uint32(0); i < numKeys; i++ {
+				// 子ノードを表示する
+				childPageNum := persistence.InternalUtil.GetChild(node, i)
+				PrintTree(table, childPageNum, depth+1)
 
-			// キーを表示する
-			fmt.Printf("%s- key %d\n", indent(depth+1), persistence.InternalUtil.GetKey(node, i))
+				// キーを表示する
+				fmt.Printf("%s- key %d\n", indent(depth+1), persistence.InternalUtil.GetKey(node, i))
+			}
+			// 一番右の子ノードを表示する
+			childPageNum := persistence.InternalUtil.GetRightChild(node)
+			PrintTree(table, childPageNum, depth+1)
 		}
-		// 一番右の子ノードを表示する
-		childPageNum := persistence.InternalUtil.GetRightChild(node)
-		PrintTree(table, childPageNum, depth+1)
 	}
 }
