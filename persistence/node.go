@@ -135,18 +135,15 @@ func (nodeUtil) GetParent(page *Page) uint32 {
 }
 
 // ノードに含まれる最大のキーを返す
-func (nodeUtil) getMaxKey(page *Page) uint32 {
+func (nodeUtil) getMaxKey(pager *Pager, page *Page) uint32 {
 	nodeType := NodeUtil.GetNodeType(page)
 
-	var key uint32
-	if nodeType == NODE_INTERNAL {
-		// 最後のキーを返す
-		key = InternalUtil.GetKey(page, InternalUtil.GetNumKeys(page)-1)
-	} else {
-		// 最後のセルのキーを返す
-		key = LeafUtil.GetCellKey(page, LeafUtil.GetNumCells(page)-1)
+	if nodeType == NODE_LEAF {
+		return InternalUtil.GetKey(page, InternalUtil.GetNumKeys(page)-1)
 	}
-	return key
+
+	rightChild := pager.GetPage(InternalUtil.GetRightChild(page))
+	return NodeUtil.getMaxKey(pager, rightChild)
 }
 
 // 内部ノードに関するユーティリティ関数

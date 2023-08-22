@@ -294,3 +294,65 @@ curは、古いノードの一番右のページ。まずはこれを、新し�
 ```
 
 色々なところでメモリを読み書きしている（純粋関数がない）ので、どの関数もハイコンテキストで読み解くのが大変。とりあえず書きながら動かしてみます。
+
+### 実際のパターンを用意しながら、やってみる
+
+まずは、分割する内部ノードがルートノードだった場合を考える。
+
+内部ノードのキーの数の上限は3個。リーフノードは14個目を挿入すると7+7個に分かれるので、25個挿入すると分割が見れる。
+
+
+```text
+分割直前の状態。12を空欄にしており、12を挿入すると分割が起きるようにしている。
+
+                                    [*,7,*,21,*,28,*]
+[1,2,3,4,5,6,7] [8,9,10,11,13,14,15,16,17,18,19,20,21] [22,23,24,25,26,27,28] [29,30,31,32,33,34,35]
+
+12を挿入する。リーフノードの分割が起きる。
+
+                                    [*,7,*,14,*,28,*]
+[1,2,3,4,5,6,7] [8,9,10,11,12,13,14] [15,16,17,18,19,20,21] [22,23,24,25,26,27,28] [29,30,31,32,33,34,35]
+
+```
+
+```text
+insert 1 user1 person1@example.com
+insert 2 user2 person2@example.com
+insert 3 user3 person3@example.com
+insert 4 user4 person4@example.com
+insert 5 user5 person5@example.com
+insert 6 user6 person6@example.com
+insert 7 user7 person7@example.com
+insert 8 user8 person8@example.com
+insert 9 user9 person9@example.com
+insert 10 user10 person10@example.com
+insert 11 user11 person11@example.com
+insert 13 user13 person13@example.com
+insert 14 user14 person14@example.com
+insert 21 user14 person14@example.com
+insert 22 user14 person14@example.com
+insert 23 user14 person14@example.com
+insert 24 user14 person14@example.com
+insert 25 user14 person14@example.com
+insert 26 user14 person14@example.com
+insert 27 user14 person14@example.com
+insert 28 user14 person14@example.com
+insert 29 user14 person14@example.com
+insert 30 user14 person14@example.com
+insert 31 user14 person14@example.com
+insert 32 user14 person14@example.com
+insert 33 user14 person14@example.com
+insert 34 user14 person14@example.com
+insert 35 user14 person14@example.com
+insert 15 user14 person14@example.com
+insert 16 user14 person14@example.com
+insert 17 user14 person14@example.com
+insert 18 user14 person14@example.com
+insert 19 user14 person14@example.com
+insert 20 user14 person14@example.com
+insert 12 user12 person12@example.com
+.btree
+.exit
+```
+
+えー、とりあえず写したらバグって困ってます。
