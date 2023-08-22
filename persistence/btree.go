@@ -159,11 +159,10 @@ func internalNodeSplitAndInsert(pager *Pager, parentPageNum uint32, childPageNum
 	child := pager.GetPage(childPageNum)
 	childMax := NodeUtil.getMaxKey(pager, child)
 
-	_, newPageNum := pager.GetNewPage()
+	newNode, newPageNum := pager.GetNewPage()
 	splittingRoot := isNodeRoot(oldNode)
 
 	var parent *Page
-	// var newNode *Page
 	if splittingRoot {
 		// oldNodeがルートノードだった場合
 		createNewRoot(pager, oldPageNum, newPageNum)
@@ -172,10 +171,10 @@ func internalNodeSplitAndInsert(pager *Pager, parentPageNum uint32, childPageNum
 		// oldPageNumが、新しいルートノードの左の子ノードを指すようにする
 		oldPageNum := InternalUtil.GetChild(parent, 0)
 		oldNode = pager.GetPage(oldPageNum)
-
-		fmt.Println(oldPageNum, newPageNum)
 	} else {
 		// TODO:
+		parent = pager.GetPage(NodeUtil.GetParent(oldNode))
+		initInternalNode(newNode)
 	}
 
 	// newNodeに移動する
@@ -214,7 +213,8 @@ func internalNodeSplitAndInsert(pager *Pager, parentPageNum uint32, childPageNum
 	updateInternalNodeKey(parent, oldMax, NodeUtil.getMaxKey(pager, oldNode))
 
 	if !splittingRoot {
-		// TODO:
+		internalNodeInsert(pager, NodeUtil.GetParent(oldNode), newPageNum)
+		NodeUtil.setParent(newNode, NodeUtil.GetParent(oldNode))
 	}
 }
 

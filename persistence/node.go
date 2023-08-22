@@ -139,7 +139,7 @@ func (nodeUtil) getMaxKey(pager *Pager, page *Page) uint32 {
 	nodeType := NodeUtil.GetNodeType(page)
 
 	if nodeType == NODE_LEAF {
-		return InternalUtil.GetKey(page, InternalUtil.GetNumKeys(page)-1)
+		return LeafUtil.GetCellKey(page, LeafUtil.GetNumCells(page)-1)
 	}
 
 	rightChild := pager.GetPage(InternalUtil.GetRightChild(page))
